@@ -1,8 +1,9 @@
 import db from '../db/db.js'
-
 import posts from '../db/schemas/posts.schema.js'
 import users from '../db/schemas/users.schema.js'
 import { eq } from 'drizzle-orm'
+
+
 
 const PostsService = {
 
