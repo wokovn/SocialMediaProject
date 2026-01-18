@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import authRoute from './modules/auth/auth.route.js';
+import postsRoute from './modules/posts/posts.route.js';
 
 const app = express();
 
@@ -17,6 +18,6 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/auth', authRoute);
-
+app.use('/posts', postsRoute);
 
 export default app;

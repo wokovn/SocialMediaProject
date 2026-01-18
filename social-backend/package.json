@@ -7,13 +7,16 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "bullmq": "^5.66.5",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.1",
     "express": "^5.2.1",
     "ioredis": "^5.9.2",
     "jose": "^6.1.3",
     "jsonwebtoken": "^9.0.3",
-    "morgan": "^1.10.1"
+    "morgan": "^1.10.1",
+    "postgres": "^3.4.8"
   },
   "devDependencies": {
     "nodemon": "^3.1.11"

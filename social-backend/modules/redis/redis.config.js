@@ -1,11 +1,12 @@
-import redis from 'ioredis'
-import dotenv from 'dotenv';
+import Redis from "ioredis";
+import dotenv from "dotenv";
+
 dotenv.config();
 
-const redisClient = new redis({
+const redis = new Redis({
   host: process.env.REDIS_HOST,
-  port: process.env.REDIS_PORT,
+  port: Number(process.env.REDIS_PORT),
   password: process.env.REDIS_PASSWORD,
-})
+});
 
-export default redisClient;
+export default redis;

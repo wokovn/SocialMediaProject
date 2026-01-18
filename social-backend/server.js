@@ -1,8 +1,7 @@
 import dotenv from 'dotenv';
 import app from './app.js';
-import redisService from './modules/redis/redis.service.js';
 import redisClient from './modules/redis/redis.config.js';
-
+import redisService from './modules/redis/redis.service.js';
 // Load environment variables
 dotenv.config();
 

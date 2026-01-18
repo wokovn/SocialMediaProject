@@ -7,9 +7,7 @@ create table if not exists public.posts (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.users(id) on delete cascade not null,
   content text not null,
-  media_urls text[], -- Array of image/video URLs
-  media_type text check (media_type in ('image', 'video', 'none')),
-  visibility text default 'public' check (visibility in ('public', 'private', 'followers')),
+  visibility text default 'public' check (visibility in ('public', 'private', 'followers', 'deleted')),
   likes_count integer default 0,
   comments_count integer default 0,
   shares_count integer default 0,

@@ -71,7 +71,6 @@
 **Mục tiêu**: Code dễ đọc, dễ sửa, tuân thủ SOLID.
 
 ### 4.1. Clean Code & Patterns
-- [ ] **Dependency Injection (DI)**: Sử dụng DI pattern (có thể dùng library như `awilix` hoặc `inversify`) hoặc tự quản lý dependencies, không khởi tạo instance thủ công trong routes. Giúp dễ dàng Mock khi viết Unit Test.
 - [ ] **Service Layer**: Chứa toàn bộ logic nghiệp vụ. Router/Controller chỉ làm nhiệm vụ điều hướng và Validate input.
 - [ ] **Validation**: Validate chặt chẽ mọi input bằng `express-validator`, `joi`, hoặc `zod`.
 
