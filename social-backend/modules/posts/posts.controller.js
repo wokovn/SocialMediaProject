@@ -61,5 +61,27 @@ const PostsController = {
             return res.status(500).json({ message: 'Error deleting post' });
         }
     },
+    likePost: async (req, res) => {
+        const postId = req.params.id;
+        const userId = req.user.sub; // Get userId from JWT token
+        try {
+            const result = await PostsService.likePost({postId, userId});
+            res.status(200).json({ message: 'Post liked successfully', likeCount: result.likeCount });
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({ message: 'Error liking post' });
+        }
+    },
+    unlikePost: async (req, res) => {
+        const postId = req.params.id;
+        const userId = req.user.sub; // Get userId from JWT token
+        try {
+            const result = await PostsService.unlikePost({postId, userId});
+            res.status(200).json({ message: 'Post unliked successfully', likeCount: result.likeCount });
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({ message: 'Error unliking post' });
+        }
+    }
 };
 export default PostsController;

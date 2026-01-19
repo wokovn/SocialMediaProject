@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import { workerOptions } from '../workers.config.js';
-import db from '../../modules/db/db.js';
-import { follows, userStats } from '../../modules/db/schemas/index.js';
+import db from '../../../modules/db/db.js';
+import { follows, userStats } from '../../../modules/db/schemas/index.js';
 import { eq, and } from 'drizzle-orm';
 
 // Follow worker - handles user follow actions

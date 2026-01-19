@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import { workerOptions } from '../workers.config.js';
-import db from '../../modules/db/db.js';
-import { posts } from '../../modules/db/schemas/index.js';
+import db from '../../../modules/db/db.js';
+import { posts } from '../../../modules/db/schemas/index.js';
 import { eq } from 'drizzle-orm';
 
 // Share worker - handles incrementing share count

@@ -2,6 +2,7 @@ import db from '../db/db.js'
 import posts from '../db/schemas/posts.schema.js'
 import users from '../db/schemas/users.schema.js'
 import { eq, and, isNull, desc } from 'drizzle-orm'
+import postsRedis from './posts.redis.js'
 
 
 
@@ -92,6 +93,12 @@ const PostsService = {
             deletedAt: new Date(),
         }).where(eq(posts.id, postId));
     },
+    likePost({ userId, postId}) {
+        return postsRedis.likePost(postId, userId);
+    },
+    unlikePost({ userId, postId}) {
+        return postsRedis.unlikePost(postId, userId);
+    }
 
 }
 export default PostsService;

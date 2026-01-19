@@ -1,6 +1,6 @@
 // auth.redis.js
 import jwt from "jsonwebtoken";
-import redisService from "../redis/redis.service.js";
+import redisService from "../../infra/redis/redis.service.js";
 
 const authRedis = {
   blacklistToken: async (token) => {

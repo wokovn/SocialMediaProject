@@ -25,6 +25,16 @@ const postsService = {
   async deletePost(postId) {
     return await apiClient.delete(`/api/posts/${postId}`)
   },
+
+  // Like post
+  async likePost(postId) {
+    return await apiClient.post(`/api/posts/${postId}/like`)
+  },
+
+  // Unlike post
+  async unlikePost(postId) {
+    return await apiClient.post(`/api/posts/${postId}/unlike`)
+  },
 }
 
 export default postsService

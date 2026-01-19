@@ -10,5 +10,7 @@ router.get("/:id", verifySupabaseJWT, PostsController.getPost);
 router.get("/user/:userId", verifySupabaseJWT, PostsController.getUserPosts);
 router.post("/", verifySupabaseJWT, PostsController.createPost);
 router.delete("/:id", verifySupabaseJWT, verifyPostOwner, PostsController.deletePost);
+router.post("/:id/like", verifySupabaseJWT, PostsController.likePost);
+router.post("/:id/unlike", verifySupabaseJWT, PostsController.unlikePost);
 
 export default router;

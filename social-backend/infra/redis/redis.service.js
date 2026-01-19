@@ -15,6 +15,8 @@ const redisService = {
   sismember: (key, value) => redis.sismember(key, value),
 
   expire: (key, ttl) => redis.expire(key, ttl),
+
+  pipeline: () => redis.pipeline(),
 };
 
 export default redisService;

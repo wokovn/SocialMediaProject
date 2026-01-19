@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import { workerOptions } from '../workers.config.js';
-import db from '../../modules/db/db.js';
-import { comments, posts } from '../../modules/db/schemas/index.js';
+import db from '../../../modules/db/db.js';
+import { comments, posts } from '../../../modules/db/schemas/index.js';
 import { eq } from 'drizzle-orm';
 
 // Comment worker - handles adding comments to posts

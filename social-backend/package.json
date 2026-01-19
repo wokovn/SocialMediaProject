@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "worker": "node workers/worker.js",
-    "worker:dev": "nodemon workers/worker.js"
+    "worker": "node infra/workers/worker.js",
+    "worker:dev": "nodemon infra/workers/worker.js"
   },
   "dependencies": {
     "bullmq": "^5.66.5",
