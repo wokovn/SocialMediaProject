@@ -42,3 +42,9 @@ export const createLikeSchema = z.object({
 export const updateLikeSchema = z.object({
   postId: z.string().uuid().optional(),
 });
+
+export const createMediaSchema = z.object({
+  postId: z.string().uuid(),
+    url: z.string().url(),
+    type: z.enum(['image', 'video']),
+});

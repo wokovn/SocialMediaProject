@@ -1,4 +1,4 @@
-import authRedis from "./auth.redis";
+import authRedis from "./auth.redis.js";
 
 const AuthService = {
 

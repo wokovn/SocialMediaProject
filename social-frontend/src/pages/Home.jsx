@@ -1,15 +1,29 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import authService from '../services/authService'
+import postsService from '../services/postsService'
+import CreatePost from '../components/CreatePost'
+import Feed from '../components/Feed'
 
 function Home() {
   const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [posts, setPosts] = useState([])
+  const [feedLoading, setFeedLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [offset, setOffset] = useState(0)
+  const limit = 20
 
   useEffect(() => {
     checkUser()
   }, [])
+
+  useEffect(() => {
+    if (user) {
+      loadFeed()
+    }
+  }, [user])
 
   const checkUser = async () => {
     const { user, error } = await authService.getCurrentUser()
@@ -21,6 +35,42 @@ function Home() {
     
     setUser(user)
     setLoading(false)
+  }
+
+  const loadFeed = async (isLoadMore = false) => {
+    setFeedLoading(true)
+    const currentOffset = isLoadMore ? offset : 0
+    
+    const { data, error } = await postsService.getPublicFeed(limit, currentOffset)
+    
+    if (!error && data) {
+      if (isLoadMore) {
+        setPosts([...posts, ...data])
+      } else {
+        setPosts(data)
+      }
+      
+      setHasMore(data.length === limit)
+      setOffset(currentOffset + data.length)
+    }
+    
+    setFeedLoading(false)
+  }
+
+  const handlePostCreated = async ({ content, visibility }) => {
+    const { data, error } = await postsService.createPost({ content, visibility })
+    
+    if (!error && data) {
+      // Reload the feed to show the new post
+      setOffset(0)
+      await loadFeed(false)
+    } else {
+      throw new Error(error || 'Failed to create post')
+    }
+  }
+
+  const handleLoadMore = () => {
+    loadFeed(true)
   }
 
   const handleSignOut = async () => {
@@ -38,47 +88,39 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200">
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-bold text-gray-900">Social App</h1>
-            <button
-              onClick={handleSignOut}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center gap-2">
+              <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
+              </svg>
+              <h1 className="text-xl font-bold text-gray-900">Social Feed</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">
+                {user?.user_metadata?.full_name || user?.email}
+              </span>
+              <button
+                onClick={handleSignOut}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Welcome, {user?.user_metadata?.full_name || user?.email}!
-          </h2>
-          
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded">
-              <p className="text-sm text-gray-600">Email</p>
-              <p className="text-gray-900 font-medium">{user?.email}</p>
-            </div>
-            
-            {user?.user_metadata?.username && (
-              <div className="p-4 bg-gray-50 rounded">
-                <p className="text-sm text-gray-600">Username</p>
-                <p className="text-gray-900 font-medium">@{user.user_metadata.username}</p>
-              </div>
-            )}
-            
-            <div className="p-4 bg-gray-50 rounded">
-              <p className="text-sm text-gray-600">Account Status</p>
-              <p className="text-gray-900 font-medium">
-                {user?.email_confirmed_at ? 'Verified' : 'Pending Verification'}
-              </p>
-            </div>
-          </div>
-        </div>
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <CreatePost onPostCreated={handlePostCreated} />
+        
+        <Feed 
+          posts={posts} 
+          loading={feedLoading}
+          onLoadMore={handleLoadMore}
+          hasMore={hasMore}
+        />
       </main>
     </div>
   )

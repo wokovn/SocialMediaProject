@@ -2,6 +2,18 @@ import PostsService from './posts.service.js';
 
 const PostsController = {
 
+    getPublicFeed: async (req, res) => {
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = parseInt(req.query.offset) || 0;
+        try {
+            const posts = await PostsService.getPublicFeed(limit, offset);
+            res.status(200).json(posts);
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({ message: 'Error retrieving public feed' });
+        }
+    },
+
     getPost: async (req, res) => {
         const postId = req.params.id;
         try {
@@ -26,6 +38,27 @@ const PostsController = {
         } catch (error) {
             console.log(error);
             return res.status(500).json({ message: 'Error retrieving posts' });
+        }
+    },
+    createPost: async (req, res) => {
+        const userId = req.user.sub; // Get userId from JWT token
+        const { content, visibility } = req.body;
+        try {
+            const result = await PostsService.createPost({ userId, content, visibility });
+            res.status(201).json({ message: 'Post created successfully', postId: result[0].id });
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({ message: 'Error creating post' });
+        }
+    },
+    deletePost: async (req, res) => {
+        const postId = req.params.id;
+        try {
+            await PostsService.deletePost(postId);
+            res.status(200).json({ message: 'Post deleted successfully' });
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({ message: 'Error deleting post' });
         }
     },
 };

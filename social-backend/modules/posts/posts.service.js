@@ -1,11 +1,38 @@
 import db from '../db/db.js'
 import posts from '../db/schemas/posts.schema.js'
 import users from '../db/schemas/users.schema.js'
-import { eq } from 'drizzle-orm'
+import { eq, and, isNull, desc } from 'drizzle-orm'
 
 
 
 const PostsService = {
+
+    getPublicFeed: async (limit = 20, offset = 0) => {
+        const feed = await db
+                            .select({
+                                    id: posts.id,
+                                    content: posts.content,
+                                    visibility: posts.visibility,
+                                    likesCount: posts.likesCount,
+                                    commentsCount: posts.commentsCount,
+                                    sharesCount: posts.sharesCount,
+                                    createdAt: posts.createdAt,
+                                    updatedAt: posts.updatedAt,
+                                    author: {
+                                    id: users.id,
+                                    fullName: users.fullName,
+                                    username: users.username,
+                                    avatar: users.avatar,
+                                    },
+                                })
+                                .from(posts)
+                                .leftJoin(users, eq(posts.userId, users.id))
+                                .where(and(eq(posts.visibility, 'public'), isNull(posts.deletedAt)))
+                                .orderBy(desc(posts.createdAt))
+                                .limit(limit)
+                                .offset(offset);
+        return feed ?? [];
+    },
 
     getPostById: async (postId) => {
         const post = await db
@@ -52,6 +79,18 @@ const PostsService = {
                                 .leftJoin(users, eq(posts.userId, users.id))
                                 .where(eq(posts.userId, userId));
         return post ?? [];
+    },
+    createPost({userId, content, visibility}) {
+        return db.insert(posts).values({
+            userId,
+            content,
+            visibility,
+        }).returning();
+    },
+    deletePost(postId) {
+        return db.update(posts).set({
+            deletedAt: new Date(),
+        }).where(eq(posts.id, postId));
     },
 
 }

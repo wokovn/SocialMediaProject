@@ -1,6 +1,6 @@
 import redisService from "../redis/redis.service.js";
 
-const postRedis = {
+const postsRedis = {
   likePost: async (postId, userId) => {
     const likeUsersKey = `post:${postId}:like_users`;
     const likeCountKey = `post:${postId}:likes`;
@@ -32,6 +32,11 @@ const postRedis = {
     const count = await redisService.get(key);
     return Number(count || 0);
   },
+  getPost: async (postId) => {
+    const key = `post:${postId}`;
+    const post = await redisService.get(key);
+    return post ? JSON.parse(post) : null;
+  }
 };
 
-export default postRedis;
+export default postsRedis;

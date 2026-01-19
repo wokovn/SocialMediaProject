@@ -17,7 +17,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-app.use('/auth', authRoute);
-app.use('/posts', postsRoute);
+app.use('/api/auth', authRoute);
+app.use('/api/posts', postsRoute);
 
 export default app;
