@@ -1,12 +1,13 @@
 import { Worker } from 'bullmq';
 import { workerOptions } from '../workers.config.js';
+import QueueNames from '../../queue/queue.names.js';
 import db from '../../../modules/db/db.js';
 import { posts } from '../../../modules/db/schemas/index.js';
 import { eq } from 'drizzle-orm';
 
 // Share worker - handles incrementing share count
 const shareWorker = new Worker(
-  'post:share',
+  QueueNames.POST_SHARE_QUEUE,
   async (job) => {
     const { userId, postId } = job.data;
 

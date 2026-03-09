@@ -1,12 +1,13 @@
 import { Worker } from 'bullmq';
 import { workerOptions } from '../workers.config.js';
+import QueueNames from '../../queue/queue.names.js';
 import db from '../../../modules/db/db.js';
 import { follows, userStats } from '../../../modules/db/schemas/index.js';
 import { eq, and } from 'drizzle-orm';
 
 // Follow worker - handles user follow actions
 const followWorker = new Worker(
-  'user:follow',
+  QueueNames.USER_FOLLOW_QUEUE,
   async (job) => {
     const { followerId, followingId } = job.data;
 

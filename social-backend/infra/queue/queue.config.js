@@ -1,5 +1,5 @@
 // Default job options
-export const defaultJobOptions = {
+export const queueOptions = {
   attempts: 3,
   backoff: {
     type: 'exponential',

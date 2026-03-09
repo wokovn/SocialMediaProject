@@ -1,12 +1,13 @@
 import { Worker } from 'bullmq';
 import { workerOptions } from '../workers.config.js';
+import QueueNames from '../../queue/queue.names.js';
 import db from '../../../modules/db/db.js';
 import { comments, posts } from '../../../modules/db/schemas/index.js';
 import { eq } from 'drizzle-orm';
 
 // Comment worker - handles adding comments to posts
 const commentWorker = new Worker(
-  'post:comment',
+  QueueNames.POST_COMMENT_QUEUE,
   async (job) => {
     const { userId, postId, content, parentId } = job.data;
 
