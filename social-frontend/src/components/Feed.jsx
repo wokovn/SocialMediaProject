@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import PostCard from './PostCard'
 
-function Feed({ posts, loading, onLoadMore, hasMore }) {
+function Feed({ posts, loading, onLoadMore, hasMore, currentUser, onPostDeleted }) {
   if (loading && posts.length === 0) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -25,7 +25,7 @@ function Feed({ posts, loading, onLoadMore, hasMore }) {
   return (
     <div className="space-y-4">
       {posts.map((post) => (
-        <PostCard key={post.id} post={post} />
+        <PostCard key={post.id} post={post} currentUser={currentUser} onDeleted={onPostDeleted} />
       ))}
 
       {hasMore && (

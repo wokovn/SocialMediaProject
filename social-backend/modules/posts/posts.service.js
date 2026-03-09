@@ -3,12 +3,13 @@ import posts from '../db/schemas/posts.schema.js'
 import users from '../db/schemas/users.schema.js'
 import { eq, and, isNull, desc } from 'drizzle-orm'
 import postsRedis from './posts.redis.js'
+import redisService from '../../infra/redis/redis.service.js'
 
 
 
 const PostsService = {
 
-    getPublicFeed: async (limit = 20, offset = 0) => {
+    getPublicFeed: async (userId, limit = 20, offset = 0) => {
         const feed = await db
                             .select({
                                     id: posts.id,
@@ -32,10 +33,14 @@ const PostsService = {
                                 .orderBy(desc(posts.createdAt))
                                 .limit(limit)
                                 .offset(offset);
-        return feed ?? [];
+        if (!feed.length) return [];
+        const pipeline = redisService.pipeline();
+        feed.forEach(post => pipeline.sismember(`post:${post.id}:likes`, userId));
+        const results = await pipeline.exec();
+        return feed.map((post, i) => ({ ...post, hasLiked: results[i][1] === 1 }));
     },
 
-    getPostById: async (postId) => {
+    getPostById: async (postId, userId) => {
         const post = await db
                             .select({
                                     id: posts.id,
@@ -56,9 +61,11 @@ const PostsService = {
                                 .from(posts)
                                 .leftJoin(users, eq(posts.userId, users.id))
                                 .where(eq(posts.id, postId));
-        return post[0] ?? null;
+        if (!post[0]) return null;
+        const hasLiked = await redisService.sismember(`post:${postId}:likes`, userId);
+        return { ...post[0], hasLiked: hasLiked === 1 };
     },
-    getPostsByUserId: async (userId) => {
+    getPostsByUserId: async (targetUserId, viewerUserId) => {
          const post = await db
                             .select({
                                     id: posts.id,
@@ -78,8 +85,12 @@ const PostsService = {
                                 })
                                 .from(posts)
                                 .leftJoin(users, eq(posts.userId, users.id))
-                                .where(eq(posts.userId, userId));
-        return post ?? [];
+                                .where(eq(posts.userId, targetUserId));
+        if (!post.length) return [];
+        const pipeline = redisService.pipeline();
+        post.forEach(p => pipeline.sismember(`post:${p.id}:likes`, viewerUserId));
+        const results = await pipeline.exec();
+        return post.map((p, i) => ({ ...p, hasLiked: results[i][1] === 1 }));
     },
     createPost({userId, content, visibility}) {
         return db.insert(posts).values({

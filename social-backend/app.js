@@ -3,6 +3,8 @@ import cors from 'cors';
 import morgan from 'morgan';
 import authRoute from './modules/auth/auth.route.js';
 import postsRoute from './modules/posts/posts.route.js';
+import commentsRoute from './modules/comments/comment.route.js';
+import { verifySupabaseJWT } from './middlewares/jwt/jwt.middleware.js';
 
 const app = express();
 
@@ -18,6 +20,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoute);
-app.use('/api/posts', postsRoute);
+app.use('/api/posts', verifySupabaseJWT, postsRoute);
+app.use('/api/posts/:postId/comments', verifySupabaseJWT, commentsRoute);
 
 export default app;

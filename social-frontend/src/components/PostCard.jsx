@@ -1,10 +1,23 @@
 import { formatDistanceToNow } from 'date-fns'
 import { useState } from 'react'
 import postsService from '../services/postsService'
+import CommentSection from './CommentSection'
 
-function PostCard({ post }) {
-  const [isLiked, setIsLiked] = useState(post.isLiked || false)
+function PostCard({ post, currentUser, onDeleted }) {
+  const [isLiked, setIsLiked] = useState(post.hasLiked || false)
   const [likesCount, setLikesCount] = useState(post.likesCount || 0)
+  const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0)
+  const [showComments, setShowComments] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  const isOwner = currentUser?.id === post.author?.id
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    const { error } = await postsService.deletePost(post.id)
+    setDeleting(false)
+    if (!error) onDeleted?.(post.id)
+  }
 
   const formatDate = (date) => {
     try {
@@ -46,11 +59,22 @@ function PostCard({ post }) {
             {formatDate(post.createdAt)}
           </p>
         </div>
-        {post.visibility !== 'public' && (
-          <span className="ml-auto px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
-            {post.visibility}
-          </span>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {post.visibility !== 'public' && (
+            <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
+              {post.visibility}
+            </span>
+          )}
+          {isOwner && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-xs font-medium text-gray-400 hover:text-red-500 disabled:opacity-40 transition"
+            >
+              {deleting ? 'Deleting…' : 'Delete'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Post Content */}
@@ -74,11 +98,16 @@ function PostCard({ post }) {
           <span className="text-sm font-medium">{likesCount}</span>
         </button>
 
-        <button className="flex items-center gap-2 text-gray-500 hover:text-green-600 transition">
+        <button 
+          onClick={() => setShowComments((v) => !v)}
+          className={`flex items-center gap-2 transition ${
+            showComments ? 'text-green-600' : 'text-gray-500 hover:text-green-600'
+          }`}
+        >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
-          <span className="text-sm font-medium">{post.commentsCount || 0}</span>
+          <span className="text-sm font-medium">{commentsCount}</span>
         </button>
 
         <button className="flex items-center gap-2 text-gray-500 hover:text-purple-600 transition">
@@ -88,6 +117,14 @@ function PostCard({ post }) {
           <span className="text-sm font-medium">{post.sharesCount || 0}</span>
         </button>
       </div>
+
+      {showComments && (
+        <CommentSection
+          postId={post.id}
+          currentUser={currentUser}
+          onCommentCountChange={(delta) => setCommentsCount((prev) => Math.max(0, prev + delta))}
+        />
+      )}
     </div>
   )
 }

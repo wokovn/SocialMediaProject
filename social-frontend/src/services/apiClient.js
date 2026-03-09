@@ -1,18 +1,19 @@
-import authService from './authService'
+import { supabase } from '../lib/supabase'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
 
 
 class ApiClient {
   async request(endpoint, options = {}) {
-    const token = authService.getToken()
+    // Always use the live Supabase session token so refreshes are picked up automatically
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
 
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,
     }
 
-    // Add Authorization header if token exists
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
@@ -27,8 +28,7 @@ class ApiClient {
 
       // Handle unauthorized responses
       if (response.status === 401) {
-        // Token might be expired or blacklisted
-        authService.removeToken()
+        await supabase.auth.signOut()
         window.location.href = '/login'
         throw new Error('Unauthorized')
       }

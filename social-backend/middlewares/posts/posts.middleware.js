@@ -8,7 +8,7 @@ export const verifyPostOwner = (req, res, next) => {
             if (!post) {
                 return res.status(404).json({ message: 'Post not found' });
             }
-            if (post.userId !== userIdFromToken) {
+            if (post.author?.id !== userIdFromToken) {
                 return res.status(403).json({ message: 'Forbidden: You do not own this post' });
             }
             next();

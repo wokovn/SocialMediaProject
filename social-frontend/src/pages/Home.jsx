@@ -69,6 +69,10 @@ function Home() {
     }
   }
 
+  const handlePostDeleted = (postId) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId))
+  }
+
   const handleLoadMore = () => {
     loadFeed(true)
   }
@@ -120,6 +124,8 @@ function Home() {
           loading={feedLoading}
           onLoadMore={handleLoadMore}
           hasMore={hasMore}
+          currentUser={user}
+          onPostDeleted={handlePostDeleted}
         />
       </main>
     </div>

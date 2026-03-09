@@ -3,10 +3,11 @@ import PostsService from './posts.service.js';
 const PostsController = {
 
     getPublicFeed: async (req, res) => {
+        const userId = req.user.sub;
         const limit = parseInt(req.query.limit) || 20;
         const offset = parseInt(req.query.offset) || 0;
         try {
-            const posts = await PostsService.getPublicFeed(limit, offset);
+            const posts = await PostsService.getPublicFeed(userId, limit, offset);
             res.status(200).json(posts);
         } catch (error) {
             console.log(error);
@@ -16,8 +17,9 @@ const PostsController = {
 
     getPost: async (req, res) => {
         const postId = req.params.id;
+        const userId = req.user.sub;
         try {
-            const post = await PostsService.getPostById(postId);
+            const post = await PostsService.getPostById(postId, userId);
             if (post) {
             res.status(200).json(post);
             } else {
@@ -31,9 +33,10 @@ const PostsController = {
         
     },
     getUserPosts: async (req, res) => {
-        const userId = req.params.userId;
+        const targetUserId = req.params.userId;
+        const viewerUserId = req.user.sub;
         try {
-            const posts = await PostsService.getPostsByUserId(userId);
+            const posts = await PostsService.getPostsByUserId(targetUserId, viewerUserId);
             res.status(200).json(posts);
         } catch (error) {
             console.log(error);
