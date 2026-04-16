@@ -45,13 +45,16 @@ const PostsController = {
     },
     createPost: async (req, res) => {
         const userId = req.user.sub; // Get userId from JWT token
-        const { content, visibility } = req.body;
+        const { content, visibility, mediaAttachments } = req.body;
         try {
-            const result = await PostsService.createPost({ userId, content, visibility });
-            res.status(201).json({ message: 'Post created successfully', postId: result[0].id });
+            const post = await PostsService.createPost({ userId, content, visibility, mediaAttachments });
+            res.status(201).json({ message: 'Post created successfully', postId: post.id, post });
         } catch (error) {
+            if (error.message === 'Post content or media is required') {
+                return res.status(400).json({ message: error.message });
+            }
             console.log(error);
-            return res.status(500).json({ message: 'Error creating post' });
+            return res.status(500).json({ message: error.message || 'Error creating post' });
         }
     },
     deletePost: async (req, res) => {

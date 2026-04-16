@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+const PASSWORD_RESET_REDIRECT_URL =
+  import.meta.env.VITE_PASSWORD_RESET_REDIRECT_URL ||
+  `${window.location.origin}/reset-password`
 
 class AuthService {
   // Store token in localStorage
@@ -145,6 +148,63 @@ class AuthService {
 
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback)
+  }
+
+  async requestPasswordReset(email) {
+    try {
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: PASSWORD_RESET_REDIRECT_URL,
+      })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error.message }
+    }
+  }
+
+  async updatePassword(newPassword) {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+      })
+
+      if (error) throw error
+      return { data, error: null }
+    } catch (error) {
+      return { data: null, error: error.message }
+    }
+  }
+
+  async checkUsernameAvailability(username) {
+    try {
+      const normalizedUsername = String(username || '').trim().toLowerCase()
+
+      if (!normalizedUsername) {
+        return {
+          data: {
+            available: false,
+            normalizedUsername,
+            reason: 'Username is required.',
+          },
+          error: null,
+        }
+      }
+
+      const response = await fetch(
+        `${BACKEND_URL}/api/users/check-username?username=${encodeURIComponent(normalizedUsername)}`,
+      )
+
+      const payload = await response.json()
+
+      if (!response.ok) {
+        throw new Error(payload?.message || 'Failed to verify username')
+      }
+
+      return { data: payload, error: null }
+    } catch (error) {
+      return { data: null, error: error.message }
+    }
   }
 }
 

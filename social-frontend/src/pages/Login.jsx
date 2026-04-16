@@ -90,6 +90,15 @@ function Login() {
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 required
               />
+              <div className="mt-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => navigate('/forgot-password')}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Forgot password?
+                </button>
+              </div>
             </div>
 
             <button 

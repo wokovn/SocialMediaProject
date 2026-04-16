@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  ChatBubbleLeftRightIcon,
+  UserCircleIcon,
+} from '@heroicons/react/24/outline'
 import authService from '../services/authService'
 import postsService from '../services/postsService'
 import CreatePost from '../components/CreatePost'
@@ -57,8 +61,13 @@ function Home() {
     setFeedLoading(false)
   }
 
-  const handlePostCreated = async ({ content, visibility }) => {
-    const { data, error } = await postsService.createPost({ content, visibility })
+  const handlePostCreated = async ({ content, visibility, files }) => {
+    const { data, error } = await postsService.createPost({
+      content,
+      visibility,
+      files,
+      userId: user?.id,
+    })
     
     if (!error && data) {
       // Reload the feed to show the new post
@@ -96,15 +105,20 @@ function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
-              </svg>
+              <ChatBubbleLeftRightIcon className="w-8 h-8 text-blue-600" aria-hidden="true" />
               <h1 className="text-xl font-bold text-gray-900">Social Feed</h1>
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600">
                 {user?.user_metadata?.full_name || user?.email}
               </span>
+              <button
+                onClick={() => navigate('/profile')}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+              >
+                <UserCircleIcon className="w-4 h-4" aria-hidden="true" />
+                Profile
+              </button>
               <button
                 onClick={handleSignOut}
                 className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"

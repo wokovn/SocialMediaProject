@@ -9,6 +9,7 @@
     "worker:dev": "nodemon infra/workers/worker.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^1.35.7",
     "bullmq": "^5.66.5",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -19,6 +20,7 @@
     "jose": "^6.1.3",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
+    "multer": "^2.1.1",
     "postgres": "^3.4.8",
     "zod": "^4.3.5"
   },

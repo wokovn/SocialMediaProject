@@ -2,3 +2,135 @@
   min-height: 100vh;
 }
 
+.rich-editor[contenteditable='true']:empty::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.rich-editor p {
+  margin: 0 0 0.75rem 0;
+}
+
+.rich-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.rich-editor ul,
+.rich-editor ol {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}
+
+.rich-editor ul {
+  list-style-type: disc;
+}
+
+.rich-editor ol {
+  list-style-type: decimal;
+}
+
+.rich-editor blockquote {
+  margin: 0.75rem 0;
+  padding-left: 0.875rem;
+  border-left: 3px solid #d1d5db;
+  color: #4b5563;
+}
+
+.rich-editor h1,
+.rich-editor h2,
+.rich-editor h3,
+.rich-editor h4,
+.rich-editor h5,
+.rich-editor h6 {
+  margin: 0.75rem 0;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.rich-editor h1 {
+  font-size: 1.875rem;
+}
+
+.rich-editor h2 {
+  font-size: 1.5rem;
+}
+
+.rich-editor h3 {
+  font-size: 1.25rem;
+}
+
+.rich-editor h4,
+.rich-editor h5,
+.rich-editor h6 {
+  font-size: 1.125rem;
+}
+
+.rich-editor a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.post-rich-content p {
+  margin: 0 0 0.75rem 0;
+}
+
+.post-rich-content p:last-child {
+  margin-bottom: 0;
+}
+
+.post-rich-content ul,
+.post-rich-content ol {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}
+
+.post-rich-content ul {
+  list-style-type: disc;
+}
+
+.post-rich-content ol {
+  list-style-type: decimal;
+}
+
+.post-rich-content blockquote {
+  margin: 0.75rem 0;
+  padding-left: 0.875rem;
+  border-left: 3px solid #d1d5db;
+  color: #4b5563;
+}
+
+.post-rich-content h1,
+.post-rich-content h2,
+.post-rich-content h3,
+.post-rich-content h4,
+.post-rich-content h5,
+.post-rich-content h6 {
+  margin: 0.75rem 0;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.post-rich-content h1 {
+  font-size: 2rem;
+}
+
+.post-rich-content h2 {
+  font-size: 1.5rem;
+}
+
+.post-rich-content h3 {
+  font-size: 1.25rem;
+}
+
+.post-rich-content h4,
+.post-rich-content h5,
+.post-rich-content h6 {
+  font-size: 1.125rem;
+}
+
+.post-rich-content a {
+  color: #2563eb;
+  text-decoration: underline;
+}
+

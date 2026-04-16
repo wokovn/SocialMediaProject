@@ -1,7 +1,80 @@
 import { formatDistanceToNow } from 'date-fns'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import DOMPurify from 'dompurify'
+import {
+  ChatBubbleOvalLeftIcon,
+  HeartIcon as HeartOutlineIcon,
+  ShareIcon,
+  TrashIcon,
+} from '@heroicons/react/24/outline'
+import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
 import postsService from '../services/postsService'
 import CommentSection from './CommentSection'
+
+const htmlTagRegex = /<\/?[a-z][\s\S]*>/i
+
+const escapeHtml = (unsafe = '') =>
+  unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+
+const renderPostContent = (content = '') => {
+  const source = htmlTagRegex.test(content)
+    ? content
+    : `<p>${escapeHtml(content).replace(/\n/g, '<br />')}</p>`
+
+  return DOMPurify.sanitize(source, {
+    ALLOWED_TAGS: [
+      'p',
+      'br',
+      'strong',
+      'em',
+      'u',
+      's',
+      'ul',
+      'ol',
+      'li',
+      'blockquote',
+      'a',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+    ],
+    ALLOWED_ATTR: ['href', 'target', 'rel'],
+  })
+}
+
+const getImageSources = (item) => {
+  const small = item?.variants?.small || null
+  const medium = item?.variants?.medium || item?.thumbnailUrl || null
+  const high = item?.variants?.high || item?.url || null
+  const primarySrc = medium || high || small || ''
+
+  const srcSetParts = []
+  if (small) {
+    srcSetParts.push(`${small} 480w`)
+  }
+  if (medium) {
+    srcSetParts.push(`${medium} 960w`)
+  }
+  if (high) {
+    srcSetParts.push(`${high} 1440w`)
+  }
+
+  const srcSet = srcSetParts.join(', ')
+
+  return {
+    src: primarySrc,
+    srcSet: srcSet || undefined,
+  }
+}
 
 function PostCard({ post, currentUser, onDeleted }) {
   const [isLiked, setIsLiked] = useState(post.hasLiked || false)
@@ -9,6 +82,9 @@ function PostCard({ post, currentUser, onDeleted }) {
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0)
   const [showComments, setShowComments] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const mediaItems = Array.isArray(post.media) ? post.media : []
+  const safeHtml = renderPostContent(post.content)
+  const authorProfilePath = post.author?.id ? `/profile/${post.author.id}` : null
 
   const isOwner = currentUser?.id === post.author?.id
 
@@ -47,18 +123,56 @@ function PostCard({ post, currentUser, onDeleted }) {
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
       {/* Author Info */}
       <div className="flex items-center mb-4">
-        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-          {post.author?.fullName?.[0]?.toUpperCase() || post.author?.username?.[0]?.toUpperCase() || 'U'}
-        </div>
-        <div className="ml-3">
-          <h4 className="font-semibold text-gray-900">
-            {post.author?.fullName || post.author?.username || 'Unknown User'}
-          </h4>
-          <p className="text-sm text-gray-500">
-            {post.author?.username && `@${post.author.username} • `}
-            {formatDate(post.createdAt)}
-          </p>
-        </div>
+        {authorProfilePath ? (
+          <Link
+            to={authorProfilePath}
+            className="inline-flex items-center min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          >
+            {post.author?.avatar ? (
+              <img
+                src={post.author.avatar}
+                alt={`${post.author?.fullName || post.author?.username || 'User'} avatar`}
+                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+                {post.author?.fullName?.[0]?.toUpperCase() || post.author?.username?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
+            <div className="ml-3 min-w-0">
+              <h4 className="font-semibold text-gray-900 truncate hover:text-blue-700 transition">
+                {post.author?.fullName || post.author?.username || 'Unknown User'}
+              </h4>
+              <p className="text-sm text-gray-500 truncate">
+                {post.author?.username && `@${post.author.username} • `}
+                {formatDate(post.createdAt)}
+              </p>
+            </div>
+          </Link>
+        ) : (
+          <>
+            {post.author?.avatar ? (
+              <img
+                src={post.author.avatar}
+                alt="Author avatar"
+                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+              />
+            ) : (
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+                {post.author?.fullName?.[0]?.toUpperCase() || post.author?.username?.[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
+            <div className="ml-3 min-w-0">
+              <h4 className="font-semibold text-gray-900 truncate">
+                {post.author?.fullName || post.author?.username || 'Unknown User'}
+              </h4>
+              <p className="text-sm text-gray-500 truncate">
+                {post.author?.username && `@${post.author.username} • `}
+                {formatDate(post.createdAt)}
+              </p>
+            </div>
+          </>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {post.visibility !== 'public' && (
             <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
@@ -69,51 +183,90 @@ function PostCard({ post, currentUser, onDeleted }) {
             <button
               onClick={handleDelete}
               disabled={deleting}
-              className="text-xs font-medium text-gray-400 hover:text-red-500 disabled:opacity-40 transition"
+              className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-red-500 disabled:opacity-40 transition"
             >
-              {deleting ? 'Deleting…' : 'Delete'}
+              <TrashIcon className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{deleting ? 'Deleting…' : 'Delete'}</span>
             </button>
           )}
         </div>
       </div>
 
       {/* Post Content */}
-      <div className="mb-4">
-        <p className="text-gray-800 whitespace-pre-wrap break-words">
-          {post.content}
-        </p>
-      </div>
+      <div
+        className="mb-4 text-gray-800 break-words post-rich-content"
+        dangerouslySetInnerHTML={{ __html: safeHtml }}
+      />
+
+      {mediaItems.length > 0 && (
+        <div className={`mb-4 grid gap-3 ${mediaItems.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
+          {mediaItems.map((item, index) => (
+            <div
+              key={item.id || `${post.id}-${index}`}
+              className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+            >
+              {item.mediaType === 'video' ? (
+                <video
+                  src={item.url}
+                  poster={item.thumbnailUrl || undefined}
+                  preload="metadata"
+                  controls
+                  className="w-full max-h-96 bg-black"
+                />
+              ) : (
+                (() => {
+                  const imageSources = getImageSources(item)
+
+                  return (
+                    <img
+                      src={imageSources.src}
+                      srcSet={imageSources.srcSet}
+                      sizes={mediaItems.length > 1 ? '(max-width: 640px) 100vw, 50vw' : '100vw'}
+                      alt={item.altText || 'Post media'}
+                      loading="lazy"
+                      className="w-full max-h-96 object-cover"
+                    />
+                  )
+                })()
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Post Stats & Actions */}
       <div className="flex items-center gap-6 pt-4 border-t border-gray-100">
-        <button 
+        <button
           onClick={handleLike}
+          aria-label={isLiked ? 'Unlike post' : 'Like post'}
           className={`flex items-center gap-2 transition ${
             isLiked ? 'text-red-600' : 'text-gray-500 hover:text-red-600'
           }`}
         >
-          <svg className="w-5 h-5" fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-          </svg>
+          {isLiked ? (
+            <HeartSolidIcon className="w-5 h-5" aria-hidden="true" />
+          ) : (
+            <HeartOutlineIcon className="w-5 h-5" aria-hidden="true" />
+          )}
           <span className="text-sm font-medium">{likesCount}</span>
         </button>
 
-        <button 
+        <button
           onClick={() => setShowComments((v) => !v)}
+          aria-label={showComments ? 'Hide comments' : 'Show comments'}
           className={`flex items-center gap-2 transition ${
             showComments ? 'text-green-600' : 'text-gray-500 hover:text-green-600'
           }`}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-          </svg>
+          <ChatBubbleOvalLeftIcon className="w-5 h-5" aria-hidden="true" />
           <span className="text-sm font-medium">{commentsCount}</span>
         </button>
 
-        <button className="flex items-center gap-2 text-gray-500 hover:text-purple-600 transition">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-          </svg>
+        <button
+          aria-label="Share post"
+          className="flex items-center gap-2 text-gray-500 hover:text-purple-600 transition"
+        >
+          <ShareIcon className="w-5 h-5" aria-hidden="true" />
           <span className="text-sm font-medium">{post.sharesCount || 0}</span>
         </button>
       </div>

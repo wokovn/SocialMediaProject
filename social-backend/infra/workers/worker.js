@@ -1,7 +1,14 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { postlikeSyncWorker, commentWorker, shareWorker, followWorker } from './workers.factory.js';
+import {
+  postlikeSyncWorker,
+  commentWorker,
+  shareWorker,
+  followWorker,
+  mediaResizeWorker,
+  mediaCleanupWorker,
+} from './workers.factory.js';
 
 console.log('Starting BullMQ workers...\n');
 
@@ -10,6 +17,8 @@ const workers = [
   { name: 'Comment Worker', worker: commentWorker },
   { name: 'Share Worker', worker: shareWorker },
   { name: 'Follow Worker', worker: followWorker },
+  { name: 'Media Resize Worker', worker: mediaResizeWorker },
+  { name: 'Media Cleanup Worker', worker: mediaCleanupWorker },
 ];
 
 workers.forEach(({ name, worker }) => {

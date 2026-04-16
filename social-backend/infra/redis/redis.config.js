@@ -10,4 +10,8 @@ const redis = new Redis({
   maxRetriesPerRequest: null,
 });
 
+redis.on('error', (error) => {
+  console.warn(`[redis] ${error.message}`);
+});
+
 export default redis;

@@ -3,4 +3,6 @@ export default {
   POST_COMMENT_QUEUE: 'post_comment',
   POST_SHARE_QUEUE: 'post_share',
   USER_FOLLOW_QUEUE: 'user_follow',
+  MEDIA_RESIZE_QUEUE: 'media_resize',
+  MEDIA_CLEANUP_QUEUE: 'media_cleanup',
 };

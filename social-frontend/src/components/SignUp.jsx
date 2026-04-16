@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import authService from '../services/authService'
 
+const USERNAME_PATTERN = /^[a-z0-9._]{3,20}$/
+
 function SignUp() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
@@ -13,12 +15,90 @@ function SignUp() {
   })
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [usernameStatus, setUsernameStatus] = useState({
+    checking: false,
+    available: null,
+    text: '',
+  })
+
+  const verifyUsername = async (value) => {
+    const normalizedUsername = String(value || '').trim().toLowerCase()
+
+    if (!normalizedUsername) {
+      setUsernameStatus({
+        checking: false,
+        available: false,
+        text: 'Username is required',
+      })
+      return { ok: false, normalizedUsername }
+    }
+
+    if (!USERNAME_PATTERN.test(normalizedUsername)) {
+      setUsernameStatus({
+        checking: false,
+        available: false,
+        text: 'Use 3-20 chars: lowercase letters, numbers, dot, underscore',
+      })
+      return { ok: false, normalizedUsername }
+    }
+
+    setUsernameStatus({
+      checking: true,
+      available: null,
+      text: 'Checking username...',
+    })
+
+    const { data, error } = await authService.checkUsernameAvailability(normalizedUsername)
+
+    if (error) {
+      setUsernameStatus({
+        checking: false,
+        available: false,
+        text: error,
+      })
+      return { ok: false, normalizedUsername }
+    }
+
+    if (!data?.available) {
+      setUsernameStatus({
+        checking: false,
+        available: false,
+        text: data?.reason || 'Username is not available',
+      })
+      return { ok: false, normalizedUsername }
+    }
+
+    setUsernameStatus({
+      checking: false,
+      available: true,
+      text: 'Username is available',
+    })
+
+    return {
+      ok: true,
+      normalizedUsername: data?.normalizedUsername || normalizedUsername,
+    }
+  }
 
   const handleChange = (e) => {
+    const { name } = e.target
+    const value =
+      name === 'username'
+        ? e.target.value.toLowerCase().replace(/\s+/g, '')
+        : e.target.value
+
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     })
+
+    if (name === 'username') {
+      setUsernameStatus({
+        checking: false,
+        available: null,
+        text: '',
+      })
+    }
   }
 
   const handleSignUp = async (e) => {
@@ -36,10 +116,20 @@ function SignUp() {
       return
     }
 
+    const usernameCheck = await verifyUsername(formData.username)
+    if (!usernameCheck.ok) {
+      setMessage({
+        type: 'error',
+        text: 'Please choose a unique username before signing up',
+      })
+      setLoading(false)
+      return
+    }
+
     const { data, error } = await authService.signUp(
       formData.email,
       formData.password,
-      formData.username,
+      usernameCheck.normalizedUsername,
       formData.fullName
     )
 
@@ -93,10 +183,26 @@ function SignUp() {
                 name="username"
                 value={formData.username}
                 onChange={handleChange}
+                onBlur={() => {
+                  if (formData.username.trim()) {
+                    verifyUsername(formData.username)
+                  }
+                }}
                 placeholder="username"
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 required
               />
+              {usernameStatus.text && (
+                <p className={`mt-1 text-xs ${
+                  usernameStatus.available
+                    ? 'text-green-600'
+                    : usernameStatus.checking
+                      ? 'text-gray-500'
+                      : 'text-red-600'
+                }`}>
+                  {usernameStatus.text}
+                </p>
+              )}
             </div>
 
             <div>
@@ -167,7 +273,7 @@ function SignUp() {
 
             <button 
               type="submit" 
-              disabled={loading}
+              disabled={loading || usernameStatus.checking}
               className="w-full bg-blue-600 text-white py-2 px-4 rounded font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? 'Creating...' : 'Sign Up'}

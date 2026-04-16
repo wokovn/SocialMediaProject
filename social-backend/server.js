@@ -6,8 +6,14 @@ dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 
-const message = await redisClient.ping();
-console.log(message);
+redisClient
+  .ping()
+  .then((message) => {
+    console.log(`Redis connected: ${message}`);
+  })
+  .catch((error) => {
+    console.warn(`[warn] Redis unavailable. API is running in degraded mode: ${error.message}`);
+  });
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

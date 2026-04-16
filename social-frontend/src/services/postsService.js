@@ -1,4 +1,5 @@
 import apiClient from './apiClient'
+import { uploadPostMediaFiles } from './mediaUploadService'
 
 const postsService = {
   // Get public feed
@@ -7,8 +8,23 @@ const postsService = {
   },
 
   // Create a new post
-  async createPost({ content, visibility = 'public' }) {
-    return await apiClient.post('/api/posts', { content, visibility })
+  async createPost({ content, visibility = 'public', files = [], userId }) {
+    let mediaAttachments = []
+
+    if (files.length > 0) {
+      const { data, error } = await uploadPostMediaFiles({ files, userId })
+      if (error) {
+        return { data: null, error }
+      }
+
+      mediaAttachments = data
+    }
+
+    return await apiClient.post('/api/posts', {
+      content,
+      visibility,
+      mediaAttachments,
+    })
   },
 
   // Get post by ID
