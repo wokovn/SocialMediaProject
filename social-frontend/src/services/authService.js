@@ -93,12 +93,11 @@ class AuthService {
       if (token) {
         // Call backend to blacklist the token
         try {
-          const response = await fetch(`${BACKEND_URL}/auth/logout`, {
+          const response = await fetch(`${BACKEND_URL}/api/auth/logout`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({ token })
           })
 
           if (!response.ok) {

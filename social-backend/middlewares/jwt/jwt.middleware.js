@@ -1,4 +1,5 @@
 import { jwtVerify, createRemoteJWKSet } from 'jose';
+import authRedis from '../../modules/auth/auth.redis.js';
 
 // URL JWKS của Supabase
 const SUPABASE_JWKS_URL = `${process.env.SUPABASE_URL}/auth/v1/.well-known/jwks.json`;
@@ -13,6 +14,11 @@ export async function verifySupabaseJWT(req, res, next) {
     }
 
     const token = authHeader.split(' ')[1];
+
+    const isBlacklisted = await authRedis.isBlacklisted(token);
+    if (isBlacklisted) {
+      return res.status(401).json({ message: 'Token has been revoked' });
+    }
 
     // Verify JWT
     const { payload } = await jwtVerify(token, jwks, {

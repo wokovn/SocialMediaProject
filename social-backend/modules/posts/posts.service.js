@@ -2,7 +2,8 @@ import db from '../db/db.js'
 import posts from '../db/schemas/posts.schema.js'
 import users from '../db/schemas/users.schema.js'
 import media from '../db/schemas/media.schema.js'
-import { eq, and, isNull, desc, inArray, asc } from 'drizzle-orm'
+import follows from '../db/schemas/follows.schema.js'
+import { eq, and, isNull, desc, inArray, asc, or } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import postsRedis from './posts.redis.js'
 import redisService from '../../infra/redis/redis.service.js'
@@ -118,6 +119,41 @@ const withPostMedia = async (postRows = []) => {
     }));
 };
 
+const isMutualFollowRelationship = async ({ firstUserId, secondUserId }) => {
+    if (!firstUserId || !secondUserId) {
+        return false;
+    }
+
+    if (firstUserId === secondUserId) {
+        return true;
+    }
+
+    const [firstFollowsSecond, secondFollowsFirst] = await Promise.all([
+        db
+            .select({ id: follows.id })
+            .from(follows)
+            .where(
+                and(
+                    eq(follows.followerId, firstUserId),
+                    eq(follows.followingId, secondUserId),
+                ),
+            )
+            .limit(1),
+        db
+            .select({ id: follows.id })
+            .from(follows)
+            .where(
+                and(
+                    eq(follows.followerId, secondUserId),
+                    eq(follows.followingId, firstUserId),
+                ),
+            )
+            .limit(1),
+    ]);
+
+    return firstFollowsSecond.length > 0 && secondFollowsFirst.length > 0;
+};
+
 
 
 const PostsService = {
@@ -166,6 +202,7 @@ const PostsService = {
         const post = await db
                             .select({
                                     id: posts.id,
+                        userId: posts.userId,
                                     content: posts.content,
                                     visibility: posts.visibility,
                                     likesCount: posts.likesCount,
@@ -182,8 +219,34 @@ const PostsService = {
                                 })
                                 .from(posts)
                                 .leftJoin(users, eq(posts.userId, users.id))
-                                .where(eq(posts.id, postId));
+                                .where(and(eq(posts.id, postId), isNull(posts.deletedAt)));
         if (!post[0]) return null;
+
+        const rawPost = post[0];
+        const postVisibility = rawPost.visibility || 'public';
+        const isOwner = rawPost.userId === userId;
+
+        if (!isOwner) {
+            if (postVisibility === 'private') {
+                return null;
+            }
+
+            if (postVisibility === 'friends') {
+                const canAccessFriendsPosts = await isMutualFollowRelationship({
+                    firstUserId: userId,
+                    secondUserId: rawPost.userId,
+                });
+
+                if (!canAccessFriendsPosts) {
+                    return null;
+                }
+            }
+
+            if (postVisibility !== 'public' && postVisibility !== 'friends' && postVisibility !== 'private') {
+                return null;
+            }
+        }
+
         let hasLiked = 0;
         if (userId) {
             try {
@@ -193,10 +256,25 @@ const PostsService = {
                 hasLiked = 0;
             }
         }
-        const [postWithMedia] = await withPostMedia([{ ...post[0], hasLiked: hasLiked === 1 }]);
-        return postWithMedia;
+        const [postWithMedia] = await withPostMedia([{ ...rawPost, hasLiked: hasLiked === 1 }]);
+        const { userId: _userId, ...postPayload } = postWithMedia;
+        return postPayload;
     },
     getPostsByUserId: async (targetUserId, viewerUserId) => {
+        const isOwner = targetUserId === viewerUserId;
+        const canAccessFriendsPosts = isOwner
+            ? true
+            : await isMutualFollowRelationship({
+                firstUserId: viewerUserId,
+                secondUserId: targetUserId,
+            });
+
+        const visibilityCondition = isOwner
+            ? undefined
+            : canAccessFriendsPosts
+                ? or(eq(posts.visibility, 'public'), eq(posts.visibility, 'friends'), isNull(posts.visibility))
+                : or(eq(posts.visibility, 'public'), isNull(posts.visibility));
+
          const post = await db
                             .select({
                                     id: posts.id,
@@ -216,7 +294,13 @@ const PostsService = {
                                 })
                                 .from(posts)
                                 .leftJoin(users, eq(posts.userId, users.id))
-                                .where(eq(posts.userId, targetUserId));
+                                .where(
+                                    and(
+                                        eq(posts.userId, targetUserId),
+                                        isNull(posts.deletedAt),
+                                        ...(visibilityCondition ? [visibilityCondition] : []),
+                                    ),
+                                );
         if (!post.length) return [];
         let postsWithLikes;
 

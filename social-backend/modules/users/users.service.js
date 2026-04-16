@@ -32,6 +32,56 @@ const buildFallbackProfile = ({ userId, email = null }) => ({
 });
 
 const UsersService = {
+  async getFollowRelationship({ viewerUserId, targetUserId }) {
+    if (!viewerUserId || !targetUserId) {
+      throw new Error('Missing viewerUserId or targetUserId.');
+    }
+
+    if (viewerUserId === targetUserId) {
+      return {
+        targetUserId,
+        viewerUserId,
+        isFollowing: false,
+        isFollowedBy: false,
+        isFriend: false,
+      };
+    }
+
+    const [followingResult, followedByResult] = await Promise.all([
+      db
+        .select({ id: follows.id })
+        .from(follows)
+        .where(
+          and(
+            eq(follows.followerId, viewerUserId),
+            eq(follows.followingId, targetUserId),
+          ),
+        )
+        .limit(1),
+      db
+        .select({ id: follows.id })
+        .from(follows)
+        .where(
+          and(
+            eq(follows.followerId, targetUserId),
+            eq(follows.followingId, viewerUserId),
+          ),
+        )
+        .limit(1),
+    ]);
+
+    const isFollowing = followingResult.length > 0;
+    const isFollowedBy = followedByResult.length > 0;
+
+    return {
+      targetUserId,
+      viewerUserId,
+      isFollowing,
+      isFollowedBy,
+      isFriend: isFollowing && isFollowedBy,
+    };
+  },
+
   async checkUsernameAvailability({ username, excludeUserId = null }) {
     const normalizedUsername = normalizeUsername(username);
 
@@ -108,7 +158,7 @@ const UsersService = {
       return null;
     }
 
-    const [followersResult, followingResult, postsResult, followResult] =
+    const [followersResult, followingResult, postsResult, relationship] =
       await Promise.all([
         db
           .select({ count: sql`count(*)::int` })
@@ -126,17 +176,14 @@ const UsersService = {
           .where(and(eq(posts.userId, targetUserId), isNull(posts.deletedAt)))
           .limit(1),
         viewerUserId && viewerUserId !== targetUserId
-          ? db
-              .select({ id: follows.id })
-              .from(follows)
-              .where(
-                and(
-                  eq(follows.followerId, viewerUserId),
-                  eq(follows.followingId, targetUserId),
-                ),
-              )
-              .limit(1)
-          : Promise.resolve([]),
+          ? this.getFollowRelationship({ viewerUserId, targetUserId })
+          : Promise.resolve({
+              targetUserId,
+              viewerUserId,
+              isFollowing: false,
+              isFollowedBy: false,
+              isFriend: false,
+            }),
       ]);
 
     return {
@@ -146,7 +193,9 @@ const UsersService = {
         followingCount: toCount(followingResult[0]),
         postsCount: toCount(postsResult[0]),
       },
-      isFollowing: followResult.length > 0,
+      isFollowing: relationship.isFollowing,
+      isFollowedBy: relationship.isFollowedBy,
+      isFriend: relationship.isFriend,
       isSelf: Boolean(viewerUserId && viewerUserId === targetUserId),
     };
   },

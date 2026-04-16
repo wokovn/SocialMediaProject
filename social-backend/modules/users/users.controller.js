@@ -78,6 +78,28 @@ const UsersController = {
     }
   },
 
+  async getRelationship(req, res) {
+    const viewerUserId = req.user?.sub;
+    const targetUserId = req.params.userId;
+
+    if (!viewerUserId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    try {
+      const relationship = await UsersService.getFollowRelationship({
+        viewerUserId,
+        targetUserId,
+      });
+
+      return res.status(200).json(relationship);
+    } catch (error) {
+      console.error('[users] getRelationship failed:', error);
+      const normalized = normalizeUsersError(error);
+      return res.status(normalized.status).json({ message: normalized.message });
+    }
+  },
+
   async followUser(req, res) {
     const followerId = req.user?.sub;
     const followingId = req.params.userId;
