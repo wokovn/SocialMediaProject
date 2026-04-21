@@ -1,8 +1,29 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import commentsService from '../services/commentsService'
 
-function CommentItem({ comment, postId, currentUserId, currentUser, onDeleted, depth = 0 }) {
+const renderCommentContent = (content) => {
+  if (!content) return null
+  const parts = content.split(/(@\w+)/g)
+  return parts.map((part, index) => {
+    if (part.startsWith('@')) {
+      const username = part.slice(1);
+      return (
+        <Link
+          key={index}
+          to={`/profile/u/${username}`}
+          className="text-blue-600 font-semibold cursor-pointer hover:underline"
+        >
+          {part}
+        </Link>
+      )
+    }
+    return part
+  })
+}
+
+function CommentItem({ comment, postId, currentUserId, currentUser, onDeleted, onReply, depth = 0 }) {
   const [isLiked, setIsLiked] = useState(comment.hasLiked || false)
   const [likesCount, setLikesCount] = useState(comment.likesCount || 0)
   const [repliesCount, setRepliesCount] = useState(comment.repliesCount || 0)
@@ -111,17 +132,31 @@ function CommentItem({ comment, postId, currentUserId, currentUser, onDeleted, d
     setRepliesCount((prev) => Math.max(0, prev - 1))
   }
 
+  const handleChildReply = (username) => {
+    setReplyContent(`@${username} `)
+    setShowReplyInput(true)
+    setTimeout(() => replyInputRef.current?.focus(), 0)
+  }
+
   return (
     <div className={`flex gap-3 ${depth > 0 ? 'mt-2' : ''}`}>
-      <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
-        {comment.author?.fullName?.[0]?.toUpperCase() || comment.author?.username?.[0]?.toUpperCase() || 'U'}
-      </div>
+      {comment.author?.avatar ? (
+        <img
+          src={comment.author.avatar}
+          alt={`${comment.author?.fullName || comment.author?.username || 'User'} avatar`}
+          className="w-8 h-8 rounded-full object-cover border border-gray-200 flex-shrink-0"
+        />
+      ) : (
+        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0">
+          {comment.author?.fullName?.[0]?.toUpperCase() || comment.author?.username?.[0]?.toUpperCase() || 'U'}
+        </div>
+      )}
       <div className="flex-1 min-w-0">
         <div className="bg-gray-50 rounded-xl px-3 py-2">
-          <p className="text-sm font-semibold text-gray-900">
+          <Link to={comment.author?.username ? `/profile/u/${comment.author.username}` : '#'} className="text-sm font-semibold text-gray-900 hover:underline">
             {comment.author?.fullName || comment.author?.username || 'Unknown'}
-          </p>
-          <p className="text-sm text-gray-800 break-words">{comment.content}</p>
+          </Link>
+          <div className="text-sm text-gray-800 break-words">{renderCommentContent(comment.content)}</div>
         </div>
 
         <div className="flex items-center gap-4 mt-1 px-1">
@@ -132,10 +167,17 @@ function CommentItem({ comment, postId, currentUserId, currentUser, onDeleted, d
           >
             {isLiked ? 'Liked' : 'Like'}{likesCount > 0 ? ` · ${likesCount}` : ''}
           </button>
-          {depth === 0 && (
+          {depth === 0 ? (
             <button
               onClick={toggleReplyInput}
               className={`text-xs font-semibold transition ${showReplyInput ? 'text-blue-500' : 'text-gray-400 hover:text-blue-500'}`}
+            >
+              Reply
+            </button>
+          ) : (
+            <button
+              onClick={() => onReply?.(comment.author?.username)}
+              className="text-xs font-semibold text-gray-400 hover:text-blue-500 transition"
             >
               Reply
             </button>
@@ -196,6 +238,7 @@ function CommentItem({ comment, postId, currentUserId, currentUser, onDeleted, d
                 currentUserId={currentUserId}
                 currentUser={currentUser}
                 onDeleted={handleReplyDeleted}
+                onReply={handleChildReply}
                 depth={1}
               />
             ))}

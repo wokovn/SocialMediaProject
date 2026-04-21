@@ -38,7 +38,7 @@ const normalizeProfilePayload = ({ profileData, authUser, isOwnProfileHint = fal
 
 function Profile() {
   const navigate = useNavigate()
-  const { userId: routeUserId } = useParams()
+  const { userId: routeUserId, username: routeUsername } = useParams()
   const [authUser, setAuthUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -67,12 +67,24 @@ function Profile() {
       }
 
       setAuthUser(user)
-      const targetUserId = routeUserId || user.id
-      const isOwnProfile = targetUserId === user.id
 
-      const { data: profileData, error: profileError } = isOwnProfile
-        ? await profileService.getMyProfile()
-        : await profileService.getProfileById(targetUserId)
+      let targetUserId = routeUserId || (!routeUsername && user.id)
+      const isOwnProfile = (!routeUsername && !routeUserId) || targetUserId === user.id
+
+      let profileData, profileError
+      if (routeUsername) {
+        const response = await profileService.getProfileByUsername(routeUsername)
+        profileData = response.data
+        profileError = response.error
+      } else if (isOwnProfile) {
+        const response = await profileService.getMyProfile()
+        profileData = response.data
+        profileError = response.error
+      } else {
+        const response = await profileService.getProfileById(targetUserId)
+        profileData = response.data
+        profileError = response.error
+      }
 
       if (profileError) {
         setError(profileError)
@@ -92,7 +104,7 @@ function Profile() {
     }
 
     loadProfile()
-  }, [navigate, routeUserId])
+  }, [navigate, routeUserId, routeUsername])
 
   const isOwnProfile = useMemo(() => {
     if (!authUser?.id || !profile?.id) {

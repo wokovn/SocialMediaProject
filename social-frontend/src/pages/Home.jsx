@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
+  BookmarkIcon,
   ChatBubbleLeftRightIcon,
   UserCircleIcon,
 } from '@heroicons/react/24/outline'
@@ -112,6 +113,13 @@ function Home() {
               <span className="text-sm text-gray-600">
                 {user?.user_metadata?.full_name || user?.email}
               </span>
+              <button
+                onClick={() => navigate('/saved')}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
+              >
+                <BookmarkIcon className="w-4 h-4" aria-hidden="true" />
+                Saved
+              </button>
               <button
                 onClick={() => navigate('/profile')}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"

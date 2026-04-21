@@ -15,6 +15,20 @@ const PostsController = {
         }
     },
 
+    getSavedPosts: async (req, res) => {
+        const userId = req.user.sub;
+        const limit = parseInt(req.query.limit) || 20;
+        const offset = parseInt(req.query.offset) || 0;
+
+        try {
+            const posts = await PostsService.getSavedPosts(userId, limit, offset);
+            res.status(200).json(posts);
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({ message: 'Error retrieving saved posts' });
+        }
+    },
+
     getPost: async (req, res) => {
         const postId = req.params.id;
         const userId = req.user.sub;
@@ -87,6 +101,34 @@ const PostsController = {
         } catch (error) {
             console.log(error);
             return res.status(500).json({ message: 'Error unliking post' });
+        }
+    },
+    bookmarkPost: async (req, res) => {
+        const postId = req.params.id;
+        const userId = req.user.sub;
+
+        try {
+            const result = await PostsService.bookmarkPost({ postId, userId });
+            res.status(200).json({ message: 'Post bookmarked successfully', ...result });
+        } catch (error) {
+            if (error.message === 'Post not found') {
+                return res.status(404).json({ message: error.message });
+            }
+
+            console.log(error);
+            return res.status(500).json({ message: 'Error bookmarking post' });
+        }
+    },
+    unbookmarkPost: async (req, res) => {
+        const postId = req.params.id;
+        const userId = req.user.sub;
+
+        try {
+            const result = await PostsService.unbookmarkPost({ postId, userId });
+            res.status(200).json({ message: 'Post removed from saved successfully', ...result });
+        } catch (error) {
+            console.log(error);
+            return res.status(500).json({ message: 'Error removing saved post' });
         }
     }
 };

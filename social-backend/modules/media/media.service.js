@@ -295,6 +295,19 @@ const parsePostMediaOwner = ({ storagePath }) => {
   };
 };
 
+const parseProfilePictureOwner = ({ storagePath }) => {
+  const relativePath = stripStoragePrefix({
+    storagePath,
+    prefix: PROFILE_PICTURE_PREFIX,
+  });
+
+  const [userId] = relativePath.split('/');
+  return {
+    userId: userId || null,
+    postId: null,
+  };
+};
+
 const resolveImageVariantUrls = ({
   storageBucket,
   storagePath,
@@ -320,14 +333,18 @@ const resolveImageVariantUrls = ({
   const ownerInfo =
     targetKind === 'post'
       ? parsePostMediaOwner({ storagePath: sourceLocation.path })
-      : { userId: null, postId: null };
+      : parseProfilePictureOwner({ storagePath: sourceLocation.path });
 
   const resolvedUserId = userId || ownerInfo.userId;
   const resolvedPostId = postId || ownerInfo.postId;
 
   const variants = {};
 
-  for (const preset of IMAGE_VARIANT_PRESETS) {
+  const presets = targetKind === 'profile_picture'
+    ? IMAGE_VARIANT_PRESETS.filter(p => p.label !== 'high')
+    : IMAGE_VARIANT_PRESETS;
+
+  for (const preset of presets) {
     const variantPath = buildVariantPath({
       storagePath: sourceLocation.path,
       userId: resolvedUserId,
@@ -792,35 +809,8 @@ const MediaService = {
           extension: '.jpg',
         });
       } else {
-        variantPath = buildVariantPath({
-          storagePath: sourceLocation.path,
-          userId,
-          postId,
-          targetKind,
-          suffix: 'fallback',
-          extension: path.posix.extname(sourceLocation.path) || '.bin',
-        });
-
-        if (
-          sourceLocation.bucket !== variantBucket ||
-          sourceLocation.path !== variantPath
-        ) {
-          try {
-            await storageService.copyObject({
-              fromBucket: sourceLocation.bucket,
-              fromPath: sourceLocation.path,
-              toBucket: variantBucket,
-              toPath: variantPath,
-            });
-            fallbackUrl =
-              storageService.getPublicUrl({
-                bucket: variantBucket,
-                path: variantPath,
-              }) || sourceUrl;
-          } catch (error) {
-            console.warn('[media-resize] Fallback copy failed:', error.message);
-          }
-        }
+        variantPath = null;
+        fallbackUrl = sourceUrl;
       }
 
       if (mediaId) {
@@ -906,7 +896,11 @@ const MediaService = {
       } else {
         variantUrls = {};
 
-        for (const preset of IMAGE_VARIANT_PRESETS) {
+        const presets = targetKind === 'profile_picture'
+          ? IMAGE_VARIANT_PRESETS.filter(p => p.label !== 'high')
+          : IMAGE_VARIANT_PRESETS;
+
+        for (const preset of presets) {
           const artifact = await ffmpegService.createImageVariant({
             inputPathOrUrl: sourceUrl,
             maxSize: preset.maxSize,
@@ -1072,10 +1066,28 @@ const MediaService = {
     }
 
     for (const row of usersRows) {
+      if (!row.avatar) continue;
+
       const avatarLocation = storageService.resolveStorageLocation({ url: row.avatar });
       const avatarKey = avatarLocation ? buildLocationKey(avatarLocation) : null;
       if (avatarKey) {
         referencedPaths.add(avatarKey);
+      }
+
+      const variantUrls = resolveImageVariantUrls({
+        url: row.avatar,
+        targetKind: 'profile_picture',
+      });
+
+      for (const variantUrl of Object.values(variantUrls || {})) {
+        const variantLocation = storageService.resolveStorageLocation({
+          url: variantUrl,
+        });
+        const variantKey = variantLocation ? buildLocationKey(variantLocation) : null;
+
+        if (variantKey) {
+          referencedPaths.add(variantKey);
+        }
       }
     }
 

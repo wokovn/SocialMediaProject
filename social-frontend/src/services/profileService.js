@@ -10,6 +10,10 @@ const profileService = {
     return apiClient.get(`/api/users/${userId}`)
   },
 
+  async getProfileByUsername(username) {
+    return apiClient.get(`/api/users/by-username/${username}`)
+  },
+
   async followUser(userId) {
     return apiClient.post(`/api/users/${userId}/follow`)
   },

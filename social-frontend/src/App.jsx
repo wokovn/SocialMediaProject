@@ -3,6 +3,7 @@ import SignUp from './components/SignUp'
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
+import SavedPosts from './pages/SavedPosts'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import './App.css'
@@ -18,8 +19,10 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/home" element={<Home />} />
+          <Route path="/saved" element={<SavedPosts />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:userId" element={<Profile />} />
+          <Route path="/profile/u/:username" element={<Profile />} />
         </Routes>
       </div>
     </Router>

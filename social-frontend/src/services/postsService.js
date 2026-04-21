@@ -7,6 +7,11 @@ const postsService = {
     return await apiClient.get(`/api/posts/feed/public?limit=${limit}&offset=${offset}`)
   },
 
+  // Get saved/bookmarked posts
+  async getSavedPosts(limit = 20, offset = 0) {
+    return await apiClient.get(`/api/posts/saved?limit=${limit}&offset=${offset}`)
+  },
+
   // Create a new post
   async createPost({ content, visibility = 'public', files = [], userId }) {
     let mediaAttachments = []
@@ -50,6 +55,16 @@ const postsService = {
   // Unlike post
   async unlikePost(postId) {
     return await apiClient.post(`/api/posts/${postId}/unlike`)
+  },
+
+  // Save post
+  async bookmarkPost(postId) {
+    return await apiClient.post(`/api/posts/${postId}/bookmark`)
+  },
+
+  // Remove saved post
+  async unbookmarkPost(postId) {
+    return await apiClient.delete(`/api/posts/${postId}/bookmark`)
   },
 }
 

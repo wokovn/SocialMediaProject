@@ -200,6 +200,21 @@ const UsersService = {
     };
   },
 
+  async getProfileByUsername({ username, viewerUserId = null }) {
+    const normalizedUsername = normalizeUsername(username);
+    if (!normalizedUsername) return null;
+
+    const [user] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(sql`lower(${users.username}) = ${normalizedUsername}`)
+      .limit(1);
+
+    if (!user) return null;
+
+    return this.getProfileById({ targetUserId: user.id, viewerUserId });
+  },
+
   async getMyProfile({ userId, email = null }) {
     return this.getProfileById({
       targetUserId: userId,

@@ -1,14 +1,18 @@
 import { formatDistanceToNow } from 'date-fns'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import {
+  BookmarkIcon as BookmarkOutlineIcon,
   ChatBubbleOvalLeftIcon,
   HeartIcon as HeartOutlineIcon,
   ShareIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline'
-import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
+import {
+  BookmarkIcon as BookmarkSolidIcon,
+  HeartIcon as HeartSolidIcon,
+} from '@heroicons/react/24/solid'
 import postsService from '../services/postsService'
 import CommentSection from './CommentSection'
 
@@ -76,17 +80,23 @@ const getImageSources = (item) => {
   }
 }
 
-function PostCard({ post, currentUser, onDeleted }) {
+function PostCard({ post, currentUser, onDeleted, onBookmarkChange }) {
   const [isLiked, setIsLiked] = useState(post.hasLiked || false)
+  const [isBookmarked, setIsBookmarked] = useState(Boolean(post.isBookmarked))
   const [likesCount, setLikesCount] = useState(post.likesCount || 0)
   const [commentsCount, setCommentsCount] = useState(post.commentsCount || 0)
   const [showComments, setShowComments] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [bookmarkLoading, setBookmarkLoading] = useState(false)
   const mediaItems = Array.isArray(post.media) ? post.media : []
   const safeHtml = renderPostContent(post.content)
   const authorProfilePath = post.author?.id ? `/profile/${post.author.id}` : null
 
   const isOwner = currentUser?.id === post.author?.id
+
+  useEffect(() => {
+    setIsBookmarked(Boolean(post.isBookmarked))
+  }, [post.isBookmarked])
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -116,6 +126,31 @@ function PostCard({ post, currentUser, onDeleted }) {
       }
     } catch (error) {
       console.error('Failed to toggle like:', error)
+    }
+  }
+
+  const handleBookmark = async () => {
+    if (bookmarkLoading) {
+      return
+    }
+
+    const nextBookmarkedState = !isBookmarked
+    setIsBookmarked(nextBookmarkedState)
+    setBookmarkLoading(true)
+
+    try {
+      if (nextBookmarkedState) {
+        await postsService.bookmarkPost(post.id)
+      } else {
+        await postsService.unbookmarkPost(post.id)
+      }
+
+      onBookmarkChange?.(post.id, nextBookmarkedState)
+    } catch (error) {
+      setIsBookmarked(!nextBookmarkedState)
+      console.error('Failed to toggle bookmark:', error)
+    } finally {
+      setBookmarkLoading(false)
     }
   }
 
@@ -260,6 +295,23 @@ function PostCard({ post, currentUser, onDeleted }) {
         >
           <ChatBubbleOvalLeftIcon className="w-5 h-5" aria-hidden="true" />
           <span className="text-sm font-medium">{commentsCount}</span>
+        </button>
+
+        <button
+          onClick={handleBookmark}
+          disabled={bookmarkLoading}
+          aria-label={isBookmarked ? 'Remove from saved posts' : 'Save post'}
+          className={`flex items-center gap-2 transition disabled:opacity-50 ${
+            isBookmarked
+              ? 'text-amber-600'
+              : 'text-gray-500 hover:text-amber-600'
+          }`}
+        >
+          {isBookmarked ? (
+            <BookmarkSolidIcon className="w-5 h-5" aria-hidden="true" />
+          ) : (
+            <BookmarkOutlineIcon className="w-5 h-5" aria-hidden="true" />
+          )}
         </button>
 
         <button

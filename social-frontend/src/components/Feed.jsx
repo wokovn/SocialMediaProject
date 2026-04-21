@@ -1,8 +1,17 @@
-import { useEffect, useState } from 'react'
 import { NewspaperIcon } from '@heroicons/react/24/outline'
 import PostCard from './PostCard'
 
-function Feed({ posts, loading, onLoadMore, hasMore, currentUser, onPostDeleted }) {
+function Feed({
+  posts,
+  loading,
+  onLoadMore,
+  hasMore,
+  currentUser,
+  onPostDeleted,
+  onPostBookmarkChange,
+  emptyTitle = 'No posts yet',
+  emptyDescription = 'Be the first to create a post!',
+}) {
   if (loading && posts.length === 0) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -15,8 +24,8 @@ function Feed({ posts, loading, onLoadMore, hasMore, currentUser, onPostDeleted 
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
         <NewspaperIcon className="mx-auto h-12 w-12 text-gray-400" aria-hidden="true" />
-        <h3 className="mt-4 text-lg font-medium text-gray-900">No posts yet</h3>
-        <p className="mt-2 text-sm text-gray-500">Be the first to create a post!</p>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">{emptyTitle}</h3>
+        <p className="mt-2 text-sm text-gray-500">{emptyDescription}</p>
       </div>
     )
   }
@@ -24,7 +33,13 @@ function Feed({ posts, loading, onLoadMore, hasMore, currentUser, onPostDeleted 
   return (
     <div className="space-y-4">
       {posts.map((post) => (
-        <PostCard key={post.id} post={post} currentUser={currentUser} onDeleted={onPostDeleted} />
+        <PostCard
+          key={post.id}
+          post={post}
+          currentUser={currentUser}
+          onDeleted={onPostDeleted}
+          onBookmarkChange={onPostBookmarkChange}
+        />
       ))}
 
       {hasMore && (

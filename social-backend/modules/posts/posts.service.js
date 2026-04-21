@@ -3,6 +3,7 @@ import posts from '../db/schemas/posts.schema.js'
 import users from '../db/schemas/users.schema.js'
 import media from '../db/schemas/media.schema.js'
 import follows from '../db/schemas/follows.schema.js'
+import bookmarks from '../db/schemas/bookmarks.schema.js'
 import { eq, and, isNull, desc, inArray, asc, or } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import postsRedis from './posts.redis.js'
@@ -154,6 +155,62 @@ const isMutualFollowRelationship = async ({ firstUserId, secondUserId }) => {
     return firstFollowsSecond.length > 0 && secondFollowsFirst.length > 0;
 };
 
+const canViewerAccessPost = async ({ viewerUserId, ownerUserId, visibility }) => {
+    if (viewerUserId && ownerUserId && viewerUserId === ownerUserId) {
+        return true;
+    }
+
+    const resolvedVisibility = visibility || 'public';
+    if (resolvedVisibility === 'public') {
+        return true;
+    }
+
+    if (resolvedVisibility === 'private') {
+        return false;
+    }
+
+    if (resolvedVisibility === 'friends') {
+        return isMutualFollowRelationship({
+            firstUserId: viewerUserId,
+            secondUserId: ownerUserId,
+        });
+    }
+
+    return false;
+};
+
+const withPostBookmarks = async ({ postRows = [], userId, forceBookmarked = false }) => {
+    if (!postRows.length) {
+        return [];
+    }
+
+    if (forceBookmarked) {
+        return postRows.map((post) => ({ ...post, isBookmarked: true }));
+    }
+
+    if (!userId) {
+        return postRows.map((post) => ({ ...post, isBookmarked: false }));
+    }
+
+    const postIds = postRows.map((post) => post.id);
+    const bookmarkedRows = await db
+        .select({ postId: bookmarks.postId })
+        .from(bookmarks)
+        .where(
+            and(
+                eq(bookmarks.userId, userId),
+                inArray(bookmarks.postId, postIds),
+            ),
+        );
+
+    const bookmarkedPostIds = new Set(bookmarkedRows.map((row) => row.postId));
+
+    return postRows.map((post) => ({
+        ...post,
+        isBookmarked: bookmarkedPostIds.has(post.id),
+    }));
+};
+
 
 
 const PostsService = {
@@ -195,7 +252,89 @@ const PostsService = {
             feedWithLikes = feed.map((post) => ({ ...post, hasLiked: false }));
         }
 
-        return withPostMedia(feedWithLikes);
+        const feedWithBookmarks = await withPostBookmarks({
+            postRows: feedWithLikes,
+            userId,
+        });
+
+        return withPostMedia(feedWithBookmarks);
+    },
+
+    getSavedPosts: async (userId, limit = 20, offset = 0) => {
+        const savedPosts = await db
+            .select({
+                id: posts.id,
+                userId: posts.userId,
+                content: posts.content,
+                visibility: posts.visibility,
+                likesCount: posts.likesCount,
+                commentsCount: posts.commentsCount,
+                sharesCount: posts.sharesCount,
+                createdAt: posts.createdAt,
+                updatedAt: posts.updatedAt,
+                savedAt: bookmarks.createdAt,
+                author: {
+                    id: users.id,
+                    fullName: users.fullName,
+                    username: users.username,
+                    avatar: users.avatar,
+                },
+            })
+            .from(bookmarks)
+            .innerJoin(posts, eq(bookmarks.postId, posts.id))
+            .leftJoin(users, eq(posts.userId, users.id))
+            .where(and(eq(bookmarks.userId, userId), isNull(posts.deletedAt)))
+            .orderBy(desc(bookmarks.createdAt))
+            .limit(limit)
+            .offset(offset);
+
+        if (!savedPosts.length) {
+            return [];
+        }
+
+        const accessibleSavedPosts = [];
+        for (const post of savedPosts) {
+            const canAccess = await canViewerAccessPost({
+                viewerUserId: userId,
+                ownerUserId: post.userId,
+                visibility: post.visibility,
+            });
+
+            if (canAccess) {
+                accessibleSavedPosts.push(post);
+            }
+        }
+
+        if (!accessibleSavedPosts.length) {
+            return [];
+        }
+
+        let postsWithLikes;
+        try {
+            const pipeline = redisService.pipeline();
+            accessibleSavedPosts.forEach((post) =>
+                pipeline.sismember(`post:${post.id}:likes`, userId),
+            );
+            const results = await pipeline.exec();
+            postsWithLikes = accessibleSavedPosts.map((post, i) => ({
+                ...post,
+                hasLiked: results[i]?.[1] === 1,
+            }));
+        } catch (error) {
+            console.warn('Redis unavailable in getSavedPosts; defaulting hasLiked=false');
+            postsWithLikes = accessibleSavedPosts.map((post) => ({
+                ...post,
+                hasLiked: false,
+            }));
+        }
+
+        const postsWithBookmarks = await withPostBookmarks({
+            postRows: postsWithLikes,
+            forceBookmarked: true,
+        });
+
+        const postsWithMedia = await withPostMedia(postsWithBookmarks);
+        return postsWithMedia.map(({ userId: _userId, ...post }) => post);
     },
 
     getPostById: async (postId, userId) => {
@@ -223,28 +362,14 @@ const PostsService = {
         if (!post[0]) return null;
 
         const rawPost = post[0];
-        const postVisibility = rawPost.visibility || 'public';
-        const isOwner = rawPost.userId === userId;
+        const canAccessPost = await canViewerAccessPost({
+            viewerUserId: userId,
+            ownerUserId: rawPost.userId,
+            visibility: rawPost.visibility,
+        });
 
-        if (!isOwner) {
-            if (postVisibility === 'private') {
-                return null;
-            }
-
-            if (postVisibility === 'friends') {
-                const canAccessFriendsPosts = await isMutualFollowRelationship({
-                    firstUserId: userId,
-                    secondUserId: rawPost.userId,
-                });
-
-                if (!canAccessFriendsPosts) {
-                    return null;
-                }
-            }
-
-            if (postVisibility !== 'public' && postVisibility !== 'friends' && postVisibility !== 'private') {
-                return null;
-            }
+        if (!canAccessPost) {
+            return null;
         }
 
         let hasLiked = 0;
@@ -256,7 +381,29 @@ const PostsService = {
                 hasLiked = 0;
             }
         }
-        const [postWithMedia] = await withPostMedia([{ ...rawPost, hasLiked: hasLiked === 1 }]);
+        let isBookmarked = false;
+        if (userId) {
+            const [bookmarkRecord] = await db
+                .select({ id: bookmarks.id })
+                .from(bookmarks)
+                .where(
+                    and(
+                        eq(bookmarks.userId, userId),
+                        eq(bookmarks.postId, postId),
+                    ),
+                )
+                .limit(1);
+
+            isBookmarked = Boolean(bookmarkRecord);
+        }
+
+        const [postWithMedia] = await withPostMedia([
+            {
+                ...rawPost,
+                hasLiked: hasLiked === 1,
+                isBookmarked,
+            },
+        ]);
         const { userId: _userId, ...postPayload } = postWithMedia;
         return postPayload;
     },
@@ -314,7 +461,12 @@ const PostsService = {
             postsWithLikes = post.map((p) => ({ ...p, hasLiked: false }));
         }
 
-        return withPostMedia(postsWithLikes);
+        const postsWithBookmarks = await withPostBookmarks({
+            postRows: postsWithLikes,
+            userId: viewerUserId,
+        });
+
+        return withPostMedia(postsWithBookmarks);
     },
     async createPost({userId, content, visibility, mediaAttachments = []}) {
         const normalizedMedia = sanitizeMediaAttachments(mediaAttachments);
@@ -430,6 +582,7 @@ const PostsService = {
         return {
             ...postWithAuthor,
             hasLiked: false,
+            isBookmarked: false,
             media: insertedMediaRows.map((row) => ({
                 ...row,
                 variants: null,
@@ -446,6 +599,50 @@ const PostsService = {
     },
     unlikePost({ userId, postId}) {
         return postsRedis.unlikePost(postId, userId);
+    },
+    async bookmarkPost({ userId, postId }) {
+        const [post] = await db
+            .select({
+                id: posts.id,
+                userId: posts.userId,
+                visibility: posts.visibility,
+            })
+            .from(posts)
+            .where(and(eq(posts.id, postId), isNull(posts.deletedAt)))
+            .limit(1);
+
+        if (!post) {
+            throw new Error('Post not found');
+        }
+
+        const canAccessPost = await canViewerAccessPost({
+            viewerUserId: userId,
+            ownerUserId: post.userId,
+            visibility: post.visibility,
+        });
+
+        if (!canAccessPost) {
+            throw new Error('Post not found');
+        }
+
+        await db
+            .insert(bookmarks)
+            .values({ userId, postId })
+            .onConflictDoNothing();
+
+        return { success: true, isBookmarked: true };
+    },
+    async unbookmarkPost({ userId, postId }) {
+        await db
+            .delete(bookmarks)
+            .where(
+                and(
+                    eq(bookmarks.userId, userId),
+                    eq(bookmarks.postId, postId),
+                ),
+            );
+
+        return { success: true, isBookmarked: false };
     }
 
 }

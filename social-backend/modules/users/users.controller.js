@@ -78,6 +78,32 @@ const UsersController = {
     }
   },
 
+  async getProfileByUsername(req, res) {
+    const viewerUserId = req.user?.sub;
+    const username = req.params.username;
+
+    if (!viewerUserId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    try {
+      const profile = await UsersService.getProfileByUsername({
+        username,
+        viewerUserId,
+      });
+
+      if (!profile) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+
+      return res.status(200).json(profile);
+    } catch (error) {
+      console.error('[users] getProfileByUsername failed:', error);
+      const normalized = normalizeUsersError(error);
+      return res.status(normalized.status).json({ message: normalized.message });
+    }
+  },
+
   async getRelationship(req, res) {
     const viewerUserId = req.user?.sub;
     const targetUserId = req.params.userId;
