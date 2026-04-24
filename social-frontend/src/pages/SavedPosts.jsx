@@ -15,7 +15,7 @@ function SavedPosts() {
   const [feedLoading, setFeedLoading] = useState(false)
   const [posts, setPosts] = useState([])
   const [hasMore, setHasMore] = useState(true)
-  const [offset, setOffset] = useState(0)
+  const [cursor, setCursor] = useState(null)
   const limit = 20
 
   useEffect(() => {
@@ -42,13 +42,15 @@ function SavedPosts() {
 
   const loadSavedPosts = async (isLoadMore = false) => {
     setFeedLoading(true)
-    const currentOffset = isLoadMore ? offset : 0
+    const currentCursor = isLoadMore ? cursor : null
 
-    const { data, error } = await postsService.getSavedPosts(limit, currentOffset)
+    const { data, error } = await postsService.getSavedPosts(limit, currentCursor)
     if (!error && data) {
       setPosts((prev) => (isLoadMore ? [...prev, ...data] : data))
       setHasMore(data.length === limit)
-      setOffset(currentOffset + data.length)
+      if (data.length > 0) {
+        setCursor(data[data.length - 1].savedAt)
+      }
     }
 
     setFeedLoading(false)

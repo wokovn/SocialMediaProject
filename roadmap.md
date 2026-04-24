@@ -109,3 +109,6 @@
 ### 6.3. Observability (Logging & Monitoring)
 - [ ] **Structured Logging**: Sử dụng `winston` hoặc `pino` để log dạng JSON (`context`, `traceId`) để dễ dàng truy vết lỗi trên các công cụ như ELK Stack hoặc Loki.
 - [ ] **Health Checks**: Endpoint `/health` để K8s/Load Balancer biết trạng thái service.
+
+## Follow Reliability TODO
+- [ ] Improve follow write-behind reliability: bootstrap Redis follow sets from DB on startup and expose pending follow state to avoid temporary follower-count drift before batch sync.

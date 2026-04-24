@@ -15,6 +15,8 @@ import {
 import authService from '../services/authService'
 import profileService from '../services/profileService'
 import Modal from '../components/Modal'
+import Feed from '../components/Feed'
+import postsService from '../services/postsService'
 import { getCroppedBlob } from '../utils/cropImage'
 
 const MAX_AVATAR_SIZE_MB = 10
@@ -46,6 +48,13 @@ function Profile() {
   const [success, setSuccess] = useState('')
   const [isSavingAvatar, setIsSavingAvatar] = useState(false)
   const [isFollowUpdating, setIsFollowUpdating] = useState(false)
+
+  // Posts / Feed state
+  const [posts, setPosts] = useState([])
+  const [feedLoading, setFeedLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const [cursor, setCursor] = useState(null)
+  const limit = 20
 
   const [cropModalOpen, setCropModalOpen] = useState(false)
   const [imageSrc, setImageSrc] = useState('')
@@ -100,11 +109,52 @@ function Profile() {
         }),
       )
 
+      // Initialize posts fetch
       setLoading(false)
+      loadUserPosts(targetUserId, false)
     }
 
     loadProfile()
   }, [navigate, routeUserId, routeUsername])
+
+  const loadUserPosts = async (targetUserId, isLoadMore = false) => {
+    if (!targetUserId) return
+    setFeedLoading(true)
+
+    const currentCursor = isLoadMore ? cursor : null
+    const { data, error: feedError } = await postsService.getUserPosts(
+      targetUserId,
+      limit,
+      currentCursor
+    )
+
+    if (!feedError && data) {
+      if (isLoadMore) {
+        setPosts((prev) => [...prev, ...data])
+      } else {
+        setPosts(data)
+      }
+      setHasMore(data.length === limit)
+      if (data.length > 0) {
+        setCursor(data[data.length - 1].createdAt)
+      }
+    }
+
+    setFeedLoading(false)
+  }
+
+  const handleLoadMore = () => {
+    loadUserPosts(profile?.id, true)
+  }
+
+  const handlePostDeleted = (postId) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId))
+  }
+
+  const handlePostShared = (sharedPost) => {
+    if (!sharedPost?.id) return
+    setPosts((prev) => [sharedPost, ...prev.filter((p) => p.id !== sharedPost.id)])
+  }
 
   const isOwnProfile = useMemo(() => {
     if (!authUser?.id || !profile?.id) {
@@ -412,6 +462,22 @@ function Profile() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* User Posts Section */}
+        <div className="mt-8">
+          <h3 className="text-lg font-bold text-gray-900 mb-6 px-2">Posts</h3>
+          <Feed
+            posts={posts}
+            loading={feedLoading}
+            onLoadMore={handleLoadMore}
+            hasMore={hasMore}
+            currentUser={authUser}
+            onPostDeleted={handlePostDeleted}
+            onPostShared={handlePostShared}
+            emptyTitle={isOwnProfile ? "You haven't posted anything yet" : "This user hasn't posted anything yet"}
+            emptyDescription={isOwnProfile ? "Share your first post with the world!" : "Check back later for new content."}
+          />
         </div>
       </main>
 

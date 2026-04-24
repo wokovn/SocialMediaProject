@@ -23,8 +23,6 @@ export const postLikeSyncProcessor = async (job) => {
 
   const events = rawData.map(item => JSON.parse(item));
 
-  console.log('[Like Sync] Processing events:', JSON.stringify(events, null, 2));
-
   // Step 2: Classify actions into Insert or Delete operations
   // Use Map to filter duplicates (e.g., when user likes then unlikes within the same batch)
   const syncMap = new Map(); // Key: `${userId}_${postId}` -> Value: Final action
@@ -56,8 +54,7 @@ export const postLikeSyncProcessor = async (job) => {
     }
   }
 
-  console.log('[Like Sync] Items to insert:', JSON.stringify(toInsert, null, 2));
-  console.log('[Like Sync] Items to delete:', JSON.stringify(toDelete, null, 2));
+
 
   try {
     await db.transaction(async (tx) => {

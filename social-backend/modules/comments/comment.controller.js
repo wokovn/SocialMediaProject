@@ -9,6 +9,10 @@ const CommentController = {
         const result = await CommentService.postComment(userId, postId, content, parentId);
         if (result.success) {
             res.status(201).json(result.comment);
+        } else if (result.message === 'Post not found' || result.message === 'Parent comment not found') {
+            res.status(404).json({ message: result.message });
+        } else if (result.message === 'Comment content is required') {
+            res.status(400).json({ message: result.message });
         } else {
             res.status(500).json({ message: result.message });
         }

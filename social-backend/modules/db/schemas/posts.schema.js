@@ -5,6 +5,7 @@ import users from './users.schema.js';
 const posts = pgTable('posts', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  sharedPostId: uuid('shared_post_id'),
   content: text('content').notNull(),
   visibility: text('visibility').default('public'),
   likesCount: integer('likes_count').default(0),

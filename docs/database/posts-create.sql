@@ -6,6 +6,7 @@
 create table if not exists public.posts (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references public.users(id) on delete cascade not null,
+  shared_post_id uuid references public.posts(id) on delete set null,
   content text not null,
   visibility text default 'public' check (visibility in ('public', 'private', 'followers', 'deleted')),
   likes_count integer default 0,
@@ -18,6 +19,7 @@ create table if not exists public.posts (
 
 -- 2. Create indexes for performance
 create index if not exists idx_posts_user_id on public.posts(user_id);
+create index if not exists idx_posts_shared_post_id on public.posts(shared_post_id) where shared_post_id is not null;
 create index if not exists idx_posts_created_at on public.posts(created_at desc);
 create index if not exists idx_posts_deleted_at on public.posts(deleted_at) where deleted_at is null;
 

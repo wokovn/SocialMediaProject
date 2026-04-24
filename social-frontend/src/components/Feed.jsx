@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { NewspaperIcon } from '@heroicons/react/24/outline'
 import PostCard from './PostCard'
 
@@ -9,9 +10,31 @@ function Feed({
   currentUser,
   onPostDeleted,
   onPostBookmarkChange,
+  onPostShared,
   emptyTitle = 'No posts yet',
   emptyDescription = 'Be the first to create a post!',
 }) {
+  const sentinelRef = useRef(null)
+
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore || loading) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          onLoadMore()
+        }
+      },
+      { threshold: 0.1, rootMargin: '200px' }
+    )
+
+    observer.observe(sentinelRef.current)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [hasMore, loading, onLoadMore])
+
   if (loading && posts.length === 0) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -39,18 +62,14 @@ function Feed({
           currentUser={currentUser}
           onDeleted={onPostDeleted}
           onBookmarkChange={onPostBookmarkChange}
+          onPostShared={onPostShared}
         />
       ))}
 
+      {/* Sentinel for Infinite Scroll */}
       {hasMore && (
-        <div className="flex justify-center pt-4">
-          <button
-            onClick={onLoadMore}
-            disabled={loading}
-            className="px-6 py-3 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
-            {loading ? 'Loading...' : 'Load More'}
-          </button>
+        <div ref={sentinelRef} className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         </div>
       )}
     </div>

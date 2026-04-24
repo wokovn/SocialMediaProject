@@ -4,7 +4,7 @@ import users from '../db/schemas/users.schema.js'
 import media from '../db/schemas/media.schema.js'
 import follows from '../db/schemas/follows.schema.js'
 import bookmarks from '../db/schemas/bookmarks.schema.js'
-import { eq, and, isNull, desc, inArray, asc, or } from 'drizzle-orm'
+import { eq, and, isNull, desc, inArray, asc, or, sql, lt } from 'drizzle-orm'
 import { randomUUID } from 'node:crypto'
 import postsRedis from './posts.redis.js'
 import redisService from '../../infra/redis/redis.service.js'
@@ -211,14 +211,110 @@ const withPostBookmarks = async ({ postRows = [], userId, forceBookmarked = fals
     }));
 };
 
+const withSharedPosts = async ({ postRows = [], viewerUserId }) => {
+    if (!postRows.length) {
+        return [];
+    }
+
+    const sharedPostIds = [...new Set(postRows.map((post) => post.sharedPostId).filter(Boolean))];
+    if (!sharedPostIds.length) {
+        return postRows.map((post) => ({ ...post, sharedPost: null }));
+    }
+
+    const sharedPostRows = await db
+        .select({
+            id: posts.id,
+            userId: posts.userId,
+            sharedPostId: posts.sharedPostId,
+            content: posts.content,
+            visibility: posts.visibility,
+            likesCount: posts.likesCount,
+            commentsCount: posts.commentsCount,
+            sharesCount: posts.sharesCount,
+            createdAt: posts.createdAt,
+            updatedAt: posts.updatedAt,
+            author: {
+                id: users.id,
+                fullName: users.fullName,
+                username: users.username,
+                avatar: users.avatar,
+            },
+        })
+        .from(posts)
+        .leftJoin(users, eq(posts.userId, users.id))
+        .where(and(inArray(posts.id, sharedPostIds), isNull(posts.deletedAt)));
+
+    const accessibleSharedPosts = [];
+    for (const sharedPost of sharedPostRows) {
+        const canAccessPost = await canViewerAccessPost({
+            viewerUserId,
+            ownerUserId: sharedPost.userId,
+            visibility: sharedPost.visibility,
+        });
+
+        if (canAccessPost) {
+            accessibleSharedPosts.push(sharedPost);
+        }
+    }
+
+    if (!accessibleSharedPosts.length) {
+        return postRows.map((post) => ({ ...post, sharedPost: null }));
+    }
+
+    let sharedPostsWithLikes;
+    if (viewerUserId) {
+        try {
+            const pipeline = redisService.pipeline();
+            accessibleSharedPosts.forEach((sharedPost) => {
+                pipeline.sismember(`post:${sharedPost.id}:likes`, viewerUserId);
+            });
+            const results = await pipeline.exec();
+            sharedPostsWithLikes = accessibleSharedPosts.map((sharedPost, index) => ({
+                ...sharedPost,
+                hasLiked: results[index]?.[1] === 1,
+            }));
+        } catch (error) {
+            console.warn('Redis unavailable in withSharedPosts; defaulting hasLiked=false');
+            sharedPostsWithLikes = accessibleSharedPosts.map((sharedPost) => ({
+                ...sharedPost,
+                hasLiked: false,
+            }));
+        }
+    } else {
+        sharedPostsWithLikes = accessibleSharedPosts.map((sharedPost) => ({
+            ...sharedPost,
+            hasLiked: false,
+        }));
+    }
+
+    const sharedPostsWithBookmarks = await withPostBookmarks({
+        postRows: sharedPostsWithLikes,
+        userId: viewerUserId,
+    });
+    const sharedPostsWithMedia = await withPostMedia(sharedPostsWithBookmarks);
+
+    const sharedPostMap = new Map(
+        sharedPostsWithMedia.map((sharedPost) => {
+            const { userId: _userId, ...sharedPostPayload } = sharedPost;
+            return [sharedPost.id, sharedPostPayload];
+        }),
+    );
+
+    return postRows.map((post) => ({
+        ...post,
+        sharedPost: post.sharedPostId ? sharedPostMap.get(post.sharedPostId) || null : null,
+    }));
+};
+
 
 
 const PostsService = {
 
-    getPublicFeed: async (userId, limit = 20, offset = 0) => {
+    getPublicFeed: async (userId, limit = 20, cursor = null) => {
         const feed = await db
                             .select({
                                     id: posts.id,
+                        sharedPostId: posts.sharedPostId,
                                     content: posts.content,
                                     visibility: posts.visibility,
                                     likesCount: posts.likesCount,
@@ -235,10 +331,15 @@ const PostsService = {
                                 })
                                 .from(posts)
                                 .leftJoin(users, eq(posts.userId, users.id))
-                                .where(and(eq(posts.visibility, 'public'), isNull(posts.deletedAt)))
-                                .orderBy(desc(posts.createdAt))
-                                .limit(limit)
-                                .offset(offset);
+                                 .where(
+                                     and(
+                                         eq(posts.visibility, 'public'), 
+                                         isNull(posts.deletedAt),
+                                         cursor ? lt(posts.createdAt, new Date(cursor)) : undefined
+                                     )
+                                 )
+                                 .orderBy(desc(posts.createdAt))
+                                 .limit(limit);
         if (!feed.length) return [];
         let feedWithLikes;
 
@@ -257,14 +358,16 @@ const PostsService = {
             userId,
         });
 
-        return withPostMedia(feedWithBookmarks);
+        const feedWithMedia = await withPostMedia(feedWithBookmarks);
+        return withSharedPosts({ postRows: feedWithMedia, viewerUserId: userId });
     },
 
-    getSavedPosts: async (userId, limit = 20, offset = 0) => {
+    getSavedPosts: async (userId, limit = 20, cursor = null) => {
         const savedPosts = await db
             .select({
                 id: posts.id,
                 userId: posts.userId,
+                sharedPostId: posts.sharedPostId,
                 content: posts.content,
                 visibility: posts.visibility,
                 likesCount: posts.likesCount,
@@ -283,10 +386,15 @@ const PostsService = {
             .from(bookmarks)
             .innerJoin(posts, eq(bookmarks.postId, posts.id))
             .leftJoin(users, eq(posts.userId, users.id))
-            .where(and(eq(bookmarks.userId, userId), isNull(posts.deletedAt)))
+            .where(
+                and(
+                    eq(bookmarks.userId, userId), 
+                    isNull(posts.deletedAt),
+                    cursor ? lt(bookmarks.createdAt, new Date(cursor)) : undefined
+                )
+            )
             .orderBy(desc(bookmarks.createdAt))
-            .limit(limit)
-            .offset(offset);
+            .limit(limit);
 
         if (!savedPosts.length) {
             return [];
@@ -334,7 +442,11 @@ const PostsService = {
         });
 
         const postsWithMedia = await withPostMedia(postsWithBookmarks);
-        return postsWithMedia.map(({ userId: _userId, ...post }) => post);
+        const postsWithSharedPosts = await withSharedPosts({
+            postRows: postsWithMedia,
+            viewerUserId: userId,
+        });
+        return postsWithSharedPosts.map(({ userId: _userId, ...post }) => post);
     },
 
     getPostById: async (postId, userId) => {
@@ -342,6 +454,7 @@ const PostsService = {
                             .select({
                                     id: posts.id,
                         userId: posts.userId,
+                                    sharedPostId: posts.sharedPostId,
                                     content: posts.content,
                                     visibility: posts.visibility,
                                     likesCount: posts.likesCount,
@@ -404,10 +517,14 @@ const PostsService = {
                 isBookmarked,
             },
         ]);
-        const { userId: _userId, ...postPayload } = postWithMedia;
+        const [postWithSharedPost] = await withSharedPosts({
+            postRows: [postWithMedia],
+            viewerUserId: userId,
+        });
+        const { userId: _userId, ...postPayload } = postWithSharedPost;
         return postPayload;
     },
-    getPostsByUserId: async (targetUserId, viewerUserId) => {
+    getPostsByUserId: async (targetUserId, viewerUserId, limit = 20, cursor = null) => {
         const isOwner = targetUserId === viewerUserId;
         const canAccessFriendsPosts = isOwner
             ? true
@@ -425,6 +542,7 @@ const PostsService = {
          const post = await db
                             .select({
                                     id: posts.id,
+                        sharedPostId: posts.sharedPostId,
                                     content: posts.content,
                                     visibility: posts.visibility,
                                     likesCount: posts.likesCount,
@@ -446,8 +564,11 @@ const PostsService = {
                                         eq(posts.userId, targetUserId),
                                         isNull(posts.deletedAt),
                                         ...(visibilityCondition ? [visibilityCondition] : []),
+                                        cursor ? lt(posts.createdAt, new Date(cursor)) : undefined
                                     ),
-                                );
+                                )
+                                .orderBy(desc(posts.createdAt))
+                                .limit(limit);
         if (!post.length) return [];
         let postsWithLikes;
 
@@ -466,7 +587,8 @@ const PostsService = {
             userId: viewerUserId,
         });
 
-        return withPostMedia(postsWithBookmarks);
+        const postsWithMedia = await withPostMedia(postsWithBookmarks);
+        return withSharedPosts({ postRows: postsWithMedia, viewerUserId });
     },
     async createPost({userId, content, visibility, mediaAttachments = []}) {
         const normalizedMedia = sanitizeMediaAttachments(mediaAttachments);
@@ -530,6 +652,7 @@ const PostsService = {
             const [postWithAuthor] = await tx
                 .select({
                     id: posts.id,
+                    sharedPostId: posts.sharedPostId,
                     content: posts.content,
                     visibility: posts.visibility,
                     likesCount: posts.likesCount,
@@ -583,22 +706,106 @@ const PostsService = {
             ...postWithAuthor,
             hasLiked: false,
             isBookmarked: false,
+            sharedPost: null,
             media: insertedMediaRows.map((row) => ({
                 ...row,
                 variants: null,
             })),
         };
     },
-    deletePost(postId) {
-        return db.update(posts).set({
-            deletedAt: new Date(),
-        }).where(eq(posts.id, postId));
+    async deletePost(postId) {
+        const [targetPost] = await db
+            .select({
+                id: posts.id,
+                sharedPostId: posts.sharedPostId,
+                deletedAt: posts.deletedAt,
+            })
+            .from(posts)
+            .where(eq(posts.id, postId))
+            .limit(1);
+
+        if (!targetPost || targetPost.deletedAt) {
+            return;
+        }
+
+        await db.transaction(async (tx) => {
+            await tx
+                .update(posts)
+                .set({ deletedAt: new Date() })
+                .where(eq(posts.id, postId));
+
+            if (targetPost.sharedPostId) {
+                await tx
+                    .update(posts)
+                    .set({ sharesCount: sql`GREATEST(${posts.sharesCount} - 1, 0)` })
+                    .where(eq(posts.id, targetPost.sharedPostId));
+            }
+        });
     },
     likePost({ userId, postId}) {
         return postsRedis.likePost(postId, userId);
     },
     unlikePost({ userId, postId}) {
         return postsRedis.unlikePost(postId, userId);
+    },
+    async sharePost({ userId, postId, content = '' }) {
+        const [post] = await db
+            .select({
+                id: posts.id,
+                userId: posts.userId,
+                visibility: posts.visibility,
+            })
+            .from(posts)
+            .where(and(eq(posts.id, postId), isNull(posts.deletedAt)))
+            .limit(1)
+
+        if (!post) {
+            throw new Error('Post not found')
+        }
+
+        const canAccessPost = await canViewerAccessPost({
+            viewerUserId: userId,
+            ownerUserId: post.userId,
+            visibility: post.visibility,
+        })
+
+        if (!canAccessPost) {
+            throw new Error('Post not found')
+        }
+
+        const sharePostId = randomUUID();
+        const shareContent = typeof content === 'string' ? content : '';
+
+        const [updatedSourcePost] = await db.transaction(async (tx) => {
+            await tx.insert(posts).values({
+                id: sharePostId,
+                userId,
+                sharedPostId: postId,
+                content: shareContent,
+                visibility: 'public',
+            });
+
+            const [updatedPost] = await tx
+                .update(posts)
+                .set({ sharesCount: sql`${posts.sharesCount} + 1` })
+                .where(eq(posts.id, postId))
+                .returning({
+                    sharesCount: posts.sharesCount,
+                });
+
+            return [updatedPost];
+        });
+
+        const sharedPost = await PostsService.getPostById(sharePostId, userId);
+        if (!sharedPost) {
+            throw new Error('Failed to create shared post');
+        }
+
+        return {
+            success: true,
+            post: sharedPost,
+            shareCount: Number(updatedSourcePost?.sharesCount || 0),
+        };
     },
     async bookmarkPost({ userId, postId }) {
         const [post] = await db

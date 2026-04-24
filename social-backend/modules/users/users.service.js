@@ -1,6 +1,7 @@
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import db from '../db/db.js';
 import { follows, posts, users } from '../db/schemas/index.js';
+import usersRedis from './users.redis.js';
 
 const USERNAME_PATTERN = /^[a-z0-9._]{3,20}$/;
 
@@ -242,25 +243,34 @@ const UsersService = {
       throw new Error('User not found.');
     }
 
-    const [existingFollow] = await db
-      .select({ id: follows.id })
-      .from(follows)
-      .where(
-        and(eq(follows.followerId, followerId), eq(follows.followingId, followingId)),
-      )
-      .limit(1);
+    const writeResult = await usersRedis.followUser({
+      followerId,
+      followingId,
+    });
 
-    if (!existingFollow) {
-      await db.insert(follows).values({
-        followerId,
-        followingId,
-      });
-    }
-
-    return this.getProfileById({
+    const profile = await this.getProfileById({
       targetUserId: followingId,
       viewerUserId: followerId,
     });
+
+    if (!profile) {
+      throw new Error('User not found.');
+    }
+
+    const followersCount =
+      writeResult.didChange && !profile.isFollowing
+        ? profile.stats.followersCount + 1
+        : profile.stats.followersCount;
+
+    return {
+      ...profile,
+      stats: {
+        ...profile.stats,
+        followersCount,
+      },
+      isFollowing: true,
+      isFriend: Boolean(profile.isFollowedBy),
+    };
   },
 
   async unfollowUser({ followerId, followingId }) {
@@ -272,16 +282,33 @@ const UsersService = {
       throw new Error('You cannot unfollow yourself.');
     }
 
-    await db
-      .delete(follows)
-      .where(
-        and(eq(follows.followerId, followerId), eq(follows.followingId, followingId)),
-      );
+    await usersRedis.unfollowUser({
+      followerId,
+      followingId,
+    });
 
-    return this.getProfileById({
+    const profile = await this.getProfileById({
       targetUserId: followingId,
       viewerUserId: followerId,
     });
+
+    if (!profile) {
+      throw new Error('User not found.');
+    }
+
+    const followersCount = profile.isFollowing
+      ? Math.max(0, profile.stats.followersCount - 1)
+      : profile.stats.followersCount;
+
+    return {
+      ...profile,
+      stats: {
+        ...profile.stats,
+        followersCount,
+      },
+      isFollowing: false,
+      isFriend: false,
+    };
   },
 };
 

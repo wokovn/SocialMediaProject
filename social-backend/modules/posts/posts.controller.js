@@ -5,9 +5,9 @@ const PostsController = {
     getPublicFeed: async (req, res) => {
         const userId = req.user.sub;
         const limit = parseInt(req.query.limit) || 20;
-        const offset = parseInt(req.query.offset) || 0;
+        const cursor = req.query.cursor || null;
         try {
-            const posts = await PostsService.getPublicFeed(userId, limit, offset);
+            const posts = await PostsService.getPublicFeed(userId, limit, cursor);
             res.status(200).json(posts);
         } catch (error) {
             console.log(error);
@@ -18,10 +18,10 @@ const PostsController = {
     getSavedPosts: async (req, res) => {
         const userId = req.user.sub;
         const limit = parseInt(req.query.limit) || 20;
-        const offset = parseInt(req.query.offset) || 0;
+        const cursor = req.query.cursor || null;
 
         try {
-            const posts = await PostsService.getSavedPosts(userId, limit, offset);
+            const posts = await PostsService.getSavedPosts(userId, limit, cursor);
             res.status(200).json(posts);
         } catch (error) {
             console.log(error);
@@ -49,8 +49,10 @@ const PostsController = {
     getUserPosts: async (req, res) => {
         const targetUserId = req.params.userId;
         const viewerUserId = req.user.sub;
+        const limit = parseInt(req.query.limit) || 20;
+        const cursor = req.query.cursor || null;
         try {
-            const posts = await PostsService.getPostsByUserId(targetUserId, viewerUserId);
+            const posts = await PostsService.getPostsByUserId(targetUserId, viewerUserId, limit, cursor);
             res.status(200).json(posts);
         } catch (error) {
             console.log(error);
@@ -101,6 +103,27 @@ const PostsController = {
         } catch (error) {
             console.log(error);
             return res.status(500).json({ message: 'Error unliking post' });
+        }
+    },
+    sharePost: async (req, res) => {
+        const postId = req.params.id;
+        const userId = req.user.sub;
+        const { content } = req.body || {};
+        try {
+            const result = await PostsService.sharePost({ postId, userId, content });
+            res.status(201).json({
+                message: 'Post shared successfully',
+                postId: result.post.id,
+                post: result.post,
+                shareCount: result.shareCount,
+            });
+        } catch (error) {
+            if (error.message === 'Post not found') {
+                return res.status(404).json({ message: error.message });
+            }
+
+            console.log(error);
+            return res.status(500).json({ message: 'Error sharing post' });
         }
     },
     bookmarkPost: async (req, res) => {

@@ -3,13 +3,15 @@ import { uploadPostMediaFiles } from './mediaUploadService'
 
 const postsService = {
   // Get public feed
-  async getPublicFeed(limit = 20, offset = 0) {
-    return await apiClient.get(`/api/posts/feed/public?limit=${limit}&offset=${offset}`)
+  async getPublicFeed(limit = 20, cursor = null) {
+    const url = `/api/posts/feed/public?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`
+    return await apiClient.get(url)
   },
 
   // Get saved/bookmarked posts
-  async getSavedPosts(limit = 20, offset = 0) {
-    return await apiClient.get(`/api/posts/saved?limit=${limit}&offset=${offset}`)
+  async getSavedPosts(limit = 20, cursor = null) {
+    const url = `/api/posts/saved?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`
+    return await apiClient.get(url)
   },
 
   // Create a new post
@@ -38,8 +40,9 @@ const postsService = {
   },
 
   // Get user posts
-  async getUserPosts(userId) {
-    return await apiClient.get(`/api/posts/user/${userId}`)
+  async getUserPosts(userId, limit = 20, cursor = null) {
+    const url = `/api/posts/user/${userId}?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`
+    return await apiClient.get(url)
   },
 
   // Delete post
@@ -55,6 +58,11 @@ const postsService = {
   // Unlike post
   async unlikePost(postId) {
     return await apiClient.post(`/api/posts/${postId}/unlike`)
+  },
+
+  // Share post
+  async sharePost(postId, content = '') {
+    return await apiClient.post(`/api/posts/${postId}/share`, { content })
   },
 
   // Save post

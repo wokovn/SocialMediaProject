@@ -3,40 +3,80 @@ import posts from '../db/schemas/posts.schema.js'
 import users from '../db/schemas/users.schema.js'
 import likes from '../db/schemas/likes.schema.js'
 import comments from '../db/schemas/comments.schema.js'
+import { randomUUID } from 'node:crypto'
 import { eq, and, isNull, desc, lt, inArray, sql } from 'drizzle-orm'
+import commentRedis from './comment.redis.js'
 
 // Comment service - handles comment-related operations
 const CommentService = {
     postComment: async (userId, postId, content, parentId = null) => {
         try {
-            await db
-                .insert(comments)
-                .values({ userId, postId, content, parentId });
+            const normalizedContent = typeof content === 'string' ? content.trim() : ''
+            if (!normalizedContent) {
+                return { success: false, message: 'Comment content is required' }
+            }
 
-            // The DB triggers handle commentsCount and repliesCount automatically.
-            // Fetch the inserted comment with author info to return to the client.
-            const [newComment] = await db
+            const [targetPost] = await db
+                .select({ id: posts.id })
+                .from(posts)
+                .where(and(eq(posts.id, postId), isNull(posts.deletedAt)))
+                .limit(1)
+
+            if (!targetPost) {
+                return { success: false, message: 'Post not found' }
+            }
+
+            if (parentId) {
+                const [parentComment] = await db
+                    .select({ id: comments.id, postId: comments.postId, deletedAt: comments.deletedAt })
+                    .from(comments)
+                    .where(eq(comments.id, parentId))
+                    .limit(1)
+
+                if (!parentComment || parentComment.postId !== postId || parentComment.deletedAt) {
+                    return { success: false, message: 'Parent comment not found' }
+                }
+            }
+
+            const [author] = await db
                 .select({
-                    id: comments.id,
-                    content: comments.content,
-                    parentId: comments.parentId,
-                    likesCount: comments.likesCount,
-                    repliesCount: comments.repliesCount,
-                    createdAt: comments.createdAt,
-                    author: {
-                        id: users.id,
-                        fullName: users.fullName,
-                        username: users.username,
-                        avatar: users.avatar,
-                    },
+                    id: users.id,
+                    fullName: users.fullName,
+                    username: users.username,
+                    avatar: users.avatar,
                 })
-                .from(comments)
-                .leftJoin(users, eq(comments.userId, users.id))
-                .where(and(eq(comments.userId, userId), eq(comments.postId, postId)))
-                .orderBy(desc(comments.createdAt))
-                .limit(1);
+                .from(users)
+                .where(eq(users.id, userId))
+                .limit(1)
 
-            return { success: true, comment: { ...newComment, hasLiked: false } };
+            if (!author) {
+                return { success: false, message: 'User not found' }
+            }
+
+            const commentId = randomUUID()
+            const createdAt = new Date().toISOString()
+
+            await commentRedis.postComment({
+                commentId,
+                userId,
+                postId,
+                parentId,
+                content: normalizedContent,
+            })
+
+            return {
+                success: true,
+                comment: {
+                    id: commentId,
+                    content: normalizedContent,
+                    parentId: parentId || null,
+                    likesCount: 0,
+                    repliesCount: 0,
+                    createdAt,
+                    author,
+                    hasLiked: false,
+                },
+            }
         } catch (error) {
             console.error('Error posting comment:', error);
             return { success: false, message: 'Failed to post comment' };

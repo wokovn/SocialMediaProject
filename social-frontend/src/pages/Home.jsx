@@ -17,20 +17,22 @@ function Home() {
   const [posts, setPosts] = useState([])
   const [feedLoading, setFeedLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const [offset, setOffset] = useState(0)
-  const limit = 20
+  const [cursor, setCursor] = useState(null)
+  const limit = 5
 
   useEffect(() => {
     checkUser()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     if (user) {
       loadFeed()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  const checkUser = async () => {
+  async function checkUser() {
     const { user, error } = await authService.getCurrentUser()
     
     if (error || !user) {
@@ -42,11 +44,11 @@ function Home() {
     setLoading(false)
   }
 
-  const loadFeed = async (isLoadMore = false) => {
+  async function loadFeed(isLoadMore = false) {
     setFeedLoading(true)
-    const currentOffset = isLoadMore ? offset : 0
+    const currentCursor = isLoadMore ? cursor : null
     
-    const { data, error } = await postsService.getPublicFeed(limit, currentOffset)
+    const { data, error } = await postsService.getPublicFeed(limit, currentCursor)
     
     if (!error && data) {
       if (isLoadMore) {
@@ -56,7 +58,9 @@ function Home() {
       }
       
       setHasMore(data.length === limit)
-      setOffset(currentOffset + data.length)
+      if (data.length > 0) {
+        setCursor(data[data.length - 1].createdAt)
+      }
     }
     
     setFeedLoading(false)
@@ -72,7 +76,7 @@ function Home() {
     
     if (!error && data) {
       // Reload the feed to show the new post
-      setOffset(0)
+      setCursor(null)
       await loadFeed(false)
     } else {
       throw new Error(error || 'Failed to create post')
@@ -81,6 +85,14 @@ function Home() {
 
   const handlePostDeleted = (postId) => {
     setPosts((prev) => prev.filter((p) => p.id !== postId))
+  }
+
+  const handlePostShared = (sharedPost) => {
+    if (!sharedPost?.id) {
+      return
+    }
+
+    setPosts((prev) => [sharedPost, ...prev.filter((post) => post.id !== sharedPost.id)])
   }
 
   const handleLoadMore = () => {
@@ -148,6 +160,7 @@ function Home() {
           hasMore={hasMore}
           currentUser={user}
           onPostDeleted={handlePostDeleted}
+          onPostShared={handlePostShared}
         />
       </main>
     </div>

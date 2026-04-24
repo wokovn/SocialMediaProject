@@ -21,7 +21,6 @@ export const postlikeSyncWorker = new Worker(
 
 postlikeSyncWorker.on('ready', async () => {
   try {
-    console.log('Worker is ready! Setting up cron job...');
     await likeSyncQueue.removeRepeatableByKey('sync-likes-batch');
     await likeSyncQueue.add('sync-likes-batch', {}, {
       repeat: {
@@ -31,8 +30,16 @@ postlikeSyncWorker.on('ready', async () => {
       removeOnComplete: true,
       removeOnFail: true,
     });
-    console.log('Cron job setup done!');
   } catch (err) {
     console.error('Setup cron job failed:', err);
   }
+});
+
+postlikeSyncWorker.on('completed', (job) => {
+  if (job.returnvalue?.message === 'Nothing to sync') return
+  console.log(`✓ Like sync job ${job.id} completed:`, job.returnvalue);
+});
+
+postlikeSyncWorker.on('failed', (job, err) => {
+  console.error(`✗ Like sync job ${job?.id} failed:`, err.message);
 });

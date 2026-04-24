@@ -8,6 +8,7 @@ import {
   XMarkIcon,
 } from '@heroicons/react/24/outline'
 import RichTextEditor from './RichTextEditor'
+import VideoPlayer from './VideoPlayer'
 
 const MAX_MEDIA_FILES = 4
 const MAX_FILE_SIZE_MB = 25
@@ -176,7 +177,7 @@ function CreatePost({ onPostCreated }) {
             {selectedMedia.map((item) => (
               <div key={item.id} className="relative border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
                 {item.file.type.startsWith('video/') ? (
-                  <video src={item.previewUrl} controls className="w-full h-44 object-cover bg-black" />
+                  <VideoPlayer src={item.previewUrl} className="w-full aspect-auto max-h-[300px] min-h-[120px] bg-black" />
                 ) : (
                   <img src={item.previewUrl} alt={item.file.name} className="w-full h-44 object-cover" />
                 )}

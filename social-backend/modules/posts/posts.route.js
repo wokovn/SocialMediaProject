@@ -12,6 +12,7 @@ router.post('/', PostsController.createPost);
 router.delete('/:id', verifyPostOwner, PostsController.deletePost);
 router.post('/:id/like', PostsController.likePost);
 router.post('/:id/unlike', PostsController.unlikePost);
+router.post('/:id/share', PostsController.sharePost);
 router.post('/:id/bookmark', PostsController.bookmarkPost);
 router.delete('/:id/bookmark', PostsController.unbookmarkPost);
 
