@@ -10,7 +10,7 @@ export const fanoutWorker = new Worker(
   {
     ...workerOptions,
     connection: redisConnection,
-    concurrency: 5,
+    concurrency: parseInt(process.env.POST_FANOUT_CONCURRENCY || '5', 10),
   }
 );
 

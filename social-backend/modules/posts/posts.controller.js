@@ -18,8 +18,9 @@ const PostsController = {
     getHybridFeed: async (req, res) => {
         const userId = req.user.sub;
         const limit = parseInt(req.query.limit) || 20;
+        const cursor = req.query.cursor || null;
         try {
-            const posts = await PostsService.getHybridFeed(userId, limit);
+            const posts = await PostsService.getHybridFeed(userId, limit, cursor);
             res.status(200).json(posts);
         } catch (error) {
             console.log('[getHybridFeed Error]', error);

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Manager UI</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; padding: 24px; }
+        .container { max-width: 900px; margin: auto; }
+        h1 { font-size: 1.6rem; font-weight: 700; margin-bottom: 6px; background: linear-gradient(135deg, #818cf8, #38bdf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { color: #64748b; font-size: 0.85rem; margin-bottom: 24px; }
+        .card { background: #1e2130; border: 1px solid #2d3148; border-radius: 12px; padding: 20px; margin-bottom: 18px; }
+        .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; color: #c7d2fe; }
+        .card h2 .badge { background: #312e81; color: #a5b4fc; font-size: 0.7rem; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+        label { display: block; font-size: 0.78rem; font-weight: 500; color: #94a3b8; margin-bottom: 5px; margin-top: 12px; }
+        input[type="number"], input[type="text"], textarea, select {
+            width: 100%; padding: 9px 12px; background: #131620; border: 1px solid #2d3148;
+            border-radius: 8px; color: #e2e8f0; font-size: 0.875rem; font-family: inherit; outline: none;
+            transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus, select:focus { border-color: #6366f1; }
+        textarea { resize: vertical; }
+        .row { display: flex; gap: 12px; }
+        .row > div { flex: 1; }
+        .btn { width: 100%; padding: 10px 16px; border: none; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; margin-top: 14px; transition: all 0.2s; font-family: inherit; }
+        .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; }
+        .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-green { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .btn-green:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-orange { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+        .btn-orange:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-red { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .btn-row { display: flex; gap: 10px; }
+        .btn-row .btn { margin-top: 10px; }
+
+        /* Slider */
+        .slider-group { margin-top: 12px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .slider-header span { font-size: 0.78rem; font-weight: 500; color: #94a3b8; }
+        .slider-val { background: #312e81; color: #a5b4fc; padding: 2px 8px; border-radius: 6px; font-size: 0.78rem; font-weight: 600; }
+        input[type="range"] { width: 100%; accent-color: #6366f1; cursor: pointer; }
+
+        /* Toggle */
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; padding: 10px 14px; background: #131620; border-radius: 8px; border: 1px solid #2d3148; }
+        .toggle-row span { font-size: 0.85rem; color: #cbd5e1; }
+        .toggle { position: relative; display: inline-block; width: 42px; height: 22px; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .slider-toggle { position: absolute; cursor: pointer; inset: 0; background: #374151; border-radius: 22px; transition: .3s; }
+        .slider-toggle:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s; }
+        input:checked + .slider-toggle { background: #6366f1; }
+        input:checked + .slider-toggle:before { transform: translateX(20px); }
+
+        /* Bot list */
+        .bot-list { max-height: 180px; overflow-y: auto; background: #131620; border-radius: 8px; border: 1px solid #2d3148; padding: 8px; margin-top: 10px; }
+        .bot-item { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; border-bottom: 1px solid #1e2130; font-size: 0.8rem; }
+        .bot-item:last-child { border-bottom: none; }
+        .bot-status-ready { color: #10b981; font-weight: 500; }
+        .bot-status-err { color: #ef4444; font-weight: 500; }
+
+        /* Log */
+        .log-box { background: #0a0c14; border: 1px solid #1e2130; border-radius: 8px; padding: 12px; max-height: 240px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.78rem; color: #94a3b8; white-space: pre-wrap; line-height: 1.6; margin-top: 10px; }
+        .log-success { color: #10b981; }
+        .log-error { color: #f87171; }
+        .log-info { color: #38bdf8; }
+
+        /* Stats bar */
+        .stats-bar { display: flex; gap: 10px; margin-top: 12px; }
+        .stat { flex: 1; background: #131620; border: 1px solid #2d3148; border-radius: 8px; padding: 10px 12px; text-align: center; }
+        .stat-val { font-size: 1.4rem; font-weight: 700; color: #818cf8; }
+        .stat-label { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+
+        /* Engagement section */
+        .engagement-section { border: 1px dashed #2d3148; border-radius: 8px; padding: 14px; margin-top: 14px; background: #131620; }
+        .engagement-section.disabled { opacity: 0.4; pointer-events: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🤖 Bot Manager Dashboard</h1>
+    <p class="subtitle">Hệ thống quản lý & điều phối User ảo — Stress Test Platform</p>
+
+    <!-- STATS -->
+    <div class="stats-bar">
+        <div class="stat"><div class="stat-val" id="statTotal">0</div><div class="stat-label">Tổng Bot</div></div>
+        <div class="stat"><div class="stat-val" id="statReady">0</div><div class="stat-label">Sẵn sàng</div></div>
+        <div class="stat"><div class="stat-val" id="statPosts">—</div><div class="stat-label">Bài đã tạo</div></div>
+        <div class="stat"><div class="stat-val" id="statLikes">—</div><div class="stat-label">Lượt Like</div></div>
+    </div>
+
+    <!-- TẠO BOT -->
+    <div class="card">
+        <h2>⚙️ Quản lý Bot <span class="badge">Bước 1</span></h2>
+        <div class="row">
+            <div>
+                <label>Số lượng Bot cần tạo</label>
+                <input type="number" id="botCount" value="5" min="1" max="200">
+            </div>
+            <div>
+                <label>Prefix username</label>
+                <input type="text" id="botPrefix" value="bot_test">
+            </div>
+        </div>
+        <div class="btn-row">
+            <button class="btn btn-primary" onclick="createBots()">➕ Tạo Bot Mới</button>
+            <button class="btn btn-green" onclick="loginAll()">🔄 Refresh Token tất cả</button>
+        </div>
+        <label style="margin-top:14px">Danh sách Bot (<span id="botTotal">0</span>)</label>
+        <div class="bot-list" id="botListUI">Đang tải...</div>
+    </div>
+
+    <!-- TẠO BÀI VIẾT -->
+    <div class="card">
+        <h2>📝 Bot Tự Tạo Bài Viết <span class="badge">Mới</span></h2>
+        <p style="font-size:0.82rem;color:#64748b;margin-bottom:4px">Hệ thống sẽ random chọn bot từ pool để đăng, tổng cộng đúng N bài. Có thể cấu hình tỉ lệ tương tác từ các bot khác.</p>
+
+        <div class="row">
+            <div>
+                <label>Tổng số bài cần tạo</label>
+                <input type="number" id="cpPostCount" value="10" min="1" max="500">
+            </div>
+            <div>
+                <label>Visibility</label>
+                <select id="cpVisibility">
+                    <option value="public">🌍 Public</option>
+                    <option value="friends">👥 Friends only</option>
+                    <option value="private">🔒 Private</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="toggle-row" id="engagementToggleRow">
+            <span>🔥 Bật tương tác tự động từ bot khác (Like & Comment)</span>
+            <label class="toggle">
+                <input type="checkbox" id="cpEnableEngagement" checked onchange="onEngagementToggle()">
+                <span class="slider-toggle"></span>
+            </label>
+        </div>
+
+        <div class="engagement-section" id="engagementSection">
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span>👍 Tỉ lệ Like</span>
+                    <span class="slider-val" id="likeRateVal">70%</span>
+                </div>
+                <input type="range" id="cpLikeRate" min="0" max="100" value="70" oninput="updateSlider('cpLikeRate','likeRateVal')">
+            </div>
+            <div class="slider-group">
+                <div class="slider-header">
+                    <span>💬 Tỉ lệ Comment</span>
+                    <span class="slider-val" id="commentRateVal">30%</span>
+                </div>
+                <input type="range" id="cpCommentRate" min="0" max="100" value="30" oninput="updateSlider('cpCommentRate','commentRateVal')">
+            </div>
+        </div>
+
+        <button class="btn btn-green" onclick="createPosts()">🚀 Bắt đầu tạo bài & tương tác</button>
+    </div>
+
+    <!-- PUSH HOT -->
+    <div class="card">
+        <h2>🔥 Đẩy Tương Tác Bài Viết (Make Hot)</h2>
+        <p style="font-size:0.82rem;color:#64748b;margin-bottom:4px">Tất cả bot sẽ Like & Comment vào bài viết chỉ định.</p>
+        <label>Post ID</label>
+        <input type="text" id="hotPostId" placeholder="Nhập ID của bài viết cần đẩy">
+        <div class="slider-group">
+            <div class="slider-header">
+                <span>👍 Tỉ lệ Like</span>
+                <span class="slider-val" id="hotLikeVal">100%</span>
+            </div>
+            <input type="range" id="hotLikeRate" min="0" max="100" value="100" oninput="updateSlider('hotLikeRate','hotLikeVal')">
+        </div>
+        <div class="slider-group">
+            <div class="slider-header">
+                <span>💬 Tỉ lệ Comment</span>
+                <span class="slider-val" id="hotCommentVal">50%</span>
+            </div>
+            <input type="range" id="hotCommentRate" min="0" max="100" value="50" oninput="updateSlider('hotCommentRate','hotCommentVal')">
+        </div>
+        <button class="btn btn-orange" onclick="makeHot()">⚡ Chạy Tương Tác</button>
+    </div>
+
+    <!-- RANDOM ACTIONS -->
+    <div class="card">
+        <h2>🎲 Tương Tác Ngẫu Nhiên (Random Actions)</h2>
+        <label>Target Usernames (cách nhau bằng dấu phẩy)</label>
+        <textarea id="targetUsernames" rows="2" placeholder="admin, testuser1, user2"></textarea>
+        <label>Target Post IDs (cách nhau bằng dấu phẩy)</label>
+        <textarea id="targetPostIds" rows="2" placeholder="post-id-1, post-id-2"></textarea>
+        <label>Số vòng lặp</label>
+        <input type="number" id="randomTimes" value="3" min="1">
+        <button class="btn btn-primary" onclick="runRandom()">▶ Chạy Random</button>
+    </div>
+
+    <!-- LOGS -->
+    <div class="card">
+        <h2>📋 Logs</h2>
+        <div class="log-box" id="logOutput">Sẵn sàng...</div>
+    </div>
+</div>
+
+<script>
+    /*INITIAL_DATA*/
+
+    let sessionPosts = 0, sessionLikes = 0;
+
+    function updateSlider(sliderId, valId) {
+        document.getElementById(valId).textContent = document.getElementById(sliderId).value + '%';
+    }
+
+    function onEngagementToggle() {
+        const checked = document.getElementById('cpEnableEngagement').checked;
+        document.getElementById('engagementSection').classList.toggle('disabled', !checked);
+    }
+
+    function logMessage(msg, type = '') {
+        const logger = document.getElementById('logOutput');
+        const time = new Date().toLocaleTimeString('vi-VN');
+        const cls = type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : type === 'info' ? 'log-info' : '';
+        const line = document.createElement('div');
+        if (cls) line.className = cls;
+        line.textContent = `[${time}] ${msg}`;
+        logger.prepend(line);
+    }
+
+    function renderBots(bots) {
+        document.getElementById('botTotal').textContent = bots.length;
+        document.getElementById('statTotal').textContent = bots.length;
+        const ready = bots.filter(b => b.status === 'Ready').length;
+        document.getElementById('statReady').textContent = ready;
+
+        const display = bots.slice(0, 50);
+        const html = display.map(b => `
+            <div class="bot-item">
+                <span><strong>@${b.username}</strong></span>
+                <span class="${b.status === 'Ready' ? 'bot-status-ready' : 'bot-status-err'}">${b.status} · ${b.followingCount} follows</span>
+            </div>
+        `).join('');
+        document.getElementById('botListUI').innerHTML = html +
+            (bots.length > 50 ? `<div style="text-align:center;color:#64748b;padding:6px">... và ${bots.length - 50} bot khác</div>` : '');
+    }
+
+    async function loadBots() {
+        try {
+            const res = await fetch('/api/bots');
+            const bots = await res.json();
+            renderBots(bots);
+        } catch (e) {
+            logMessage('Lỗi tải bot: ' + e.message, 'error');
+        }
+    }
+
+    if (window.initialBots) {
+        renderBots(window.initialBots);
+    } else {
+        loadBots();
+    }
+
+    async function createBots() {
+        const count = parseInt(document.getElementById('botCount').value);
+        const prefix = document.getElementById('botPrefix').value.trim();
+        logMessage(`Đang tạo ${count} bots với prefix "${prefix}"...`, 'info');
+        try {
+            const res = await fetch('/api/bots/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ count, prefix })
+            });
+            const data = await res.json();
+            logMessage(data.message, 'success');
+            loadBots();
+        } catch (e) {
+            logMessage('Lỗi tạo bot: ' + e.message, 'error');
+        }
+    }
+
+    async function loginAll() {
+        logMessage('Đang refresh token toàn bộ bot...', 'info');
+        try {
+            const res = await fetch('/api/bots/login-all', { method: 'POST' });
+            const data = await res.json();
+            logMessage(data.message, 'success');
+            loadBots();
+        } catch (e) {
+            logMessage('Lỗi refresh: ' + e.message, 'error');
+        }
+    }
+
+    async function createPosts() {
+        const totalPosts = parseInt(document.getElementById('cpPostCount').value);
+        const visibility = document.getElementById('cpVisibility').value;
+        const enableEngagement = document.getElementById('cpEnableEngagement').checked;
+        const likeRate = parseInt(document.getElementById('cpLikeRate').value) / 100;
+        const commentRate = parseInt(document.getElementById('cpCommentRate').value) / 100;
+
+        logMessage(`Đang cho bot tạo tổng ${totalPosts} bài (random từ pool) | Like: ${Math.round(likeRate*100)}% | Comment: ${Math.round(commentRate*100)}%...`, 'info');
+        try {
+            const res = await fetch('/api/actions/create-posts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ totalPosts, enableEngagement, likeRate, commentRate, visibility })
+            });
+            const data = await res.json();
+            if (!res.ok) { logMessage(data.error, 'error'); return; }
+            logMessage(`✅ ${data.message} | Bài: ${data.totalPosts} | Like: ${data.totalLikes} | Comment: ${data.totalComments}`, 'success');
+            sessionPosts += data.totalPosts;
+            sessionLikes += data.totalLikes;
+            document.getElementById('statPosts').textContent = sessionPosts;
+            document.getElementById('statLikes').textContent = sessionLikes;
+        } catch (e) {
+            logMessage('Lỗi: ' + e.message, 'error');
+        }
+    }
+
+    async function makeHot() {
+        const postId = document.getElementById('hotPostId').value.trim();
+        if (!postId) return alert('Vui lòng nhập Post ID');
+        const likeRate = parseInt(document.getElementById('hotLikeRate').value) / 100;
+        const commentRate = parseInt(document.getElementById('hotCommentRate').value) / 100;
+        logMessage(`Đang đẩy Hot bài ${postId} | Like: ${Math.round(likeRate*100)}% | Comment: ${Math.round(commentRate*100)}%...`, 'info');
+        try {
+            const res = await fetch('/api/actions/hot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ postId, likeRate, commentRate })
+            });
+            const data = await res.json();
+            logMessage(`✅ ${data.message} — Likes: ${data.likes}, Comments: ${data.comments}`, 'success');
+            sessionLikes += data.likes;
+            document.getElementById('statLikes').textContent = sessionLikes;
+        } catch (e) {
+            logMessage('Lỗi: ' + e.message, 'error');
+        }
+    }
+
+    async function runRandom() {
+        const targetUsernames = document.getElementById('targetUsernames').value.split(',').map(s => s.trim()).filter(Boolean);
+        const targetPostIds = document.getElementById('targetPostIds').value.split(',').map(s => s.trim()).filter(Boolean);
+        const times = parseInt(document.getElementById('randomTimes').value);
+        logMessage(`Đang chạy ${times} vòng random...`, 'info');
+        try {
+            const res = await fetch('/api/actions/random', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetUsernames, targetPostIds, times })
+            });
+            const data = await res.json();
+            logMessage('✅ ' + data.message, 'success');
+            loadBots();
+        } catch (e) {
+            logMessage('Lỗi: ' + e.message, 'error');
+        }
+    }
+
+    loadBots();
+</script>
+</body>
+</html>

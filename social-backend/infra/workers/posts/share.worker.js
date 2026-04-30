@@ -8,7 +8,7 @@ import redisConnection from '../../redis/redis.config.js';
 import RedisKeys from '../../redis/redis.key.js';
 import { shareSyncQueue } from '../../queue/share.queue.js';
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = parseInt(process.env.WORKER_BATCH_SIZE || '100', 10);
 
 const shareSyncProcessor = async () => {
   const pipeline = redisConnection.pipeline();
@@ -69,7 +69,7 @@ const shareWorker = new Worker(
   {
     ...workerOptions,
     connection: redisConnection,
-    concurrency: 1,
+    concurrency: parseInt(process.env.POST_SHARE_SYNC_CONCURRENCY || '1', 10),
     limiter: {
       max: 1,
       duration: 1000,
@@ -82,7 +82,7 @@ shareWorker.on('ready', async () => {
     await shareSyncQueue.removeRepeatableByKey('sync-shares-batch');
     await shareSyncQueue.add('sync-shares-batch', {}, {
       repeat: {
-        every: 5000,
+        every: parseInt(process.env.WORKER_SYNC_INTERVAL_MS || '5000', 10),
         key: 'sync-shares-batch',
       },
       removeOnComplete: true,

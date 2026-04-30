@@ -10,7 +10,7 @@ export const rankingWorker = new Worker(
   {
     ...workerOptions,
     connection: redisConnection,
-    concurrency: 5,
+    concurrency: parseInt(process.env.RANKING_WORKER_CONCURRENCY || '5'),
   }
 );
 

@@ -1,15 +1,15 @@
 // Default job options
 export const queueOptions = {
-  attempts: 3,
+  attempts: parseInt(process.env.QUEUE_JOB_ATTEMPTS || '3'),
   backoff: {
     type: 'exponential',
     delay: 2000,
   },
   removeOnComplete: {
-    count: 100,
+    count: parseInt(process.env.QUEUE_REMOVE_ON_COMPLETE || '100'),
   },
   removeOnFail: {
-    count: 500,
+    count: parseInt(process.env.QUEUE_REMOVE_ON_FAIL || '500'),
   },
 };
 

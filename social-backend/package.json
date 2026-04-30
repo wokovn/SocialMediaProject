@@ -6,12 +6,14 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "worker": "node infra/workers/worker.js",
-    "worker:dev": "nodemon infra/workers/worker.js"
+    "worker:dev": "nodemon infra/workers/worker.js",
+    "bot:manager": "node scripts/bots/bot-manager.js"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
     "@socket.io/redis-emitter": "^5.1.0",
     "@supabase/supabase-js": "^1.35.7",
+    "axios": "^1.15.2",
     "bullmq": "^5.66.5",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",

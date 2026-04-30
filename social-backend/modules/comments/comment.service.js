@@ -6,6 +6,7 @@ import comments from '../db/schemas/comments.schema.js'
 import { randomUUID } from 'node:crypto'
 import { eq, and, isNull, desc, lt, inArray, sql } from 'drizzle-orm'
 import commentRedis from './comment.redis.js'
+import { addRankingJobWithThrottle } from '../../infra/queue/ranking.queue.js'
 
 // Comment service - handles comment-related operations
 const CommentService = {
@@ -63,6 +64,11 @@ const CommentService = {
                 parentId,
                 content: normalizedContent,
             })
+
+            // Cập nhật Ranking Engine - Throttled 30s
+            addRankingJobWithThrottle(postId, 'COMMENT').catch(err => {
+                console.error('[Ranking] Failed to enqueue COMMENT interaction', err);
+            });
 
             return {
                 success: true,

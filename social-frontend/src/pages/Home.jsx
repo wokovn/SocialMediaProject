@@ -48,16 +48,29 @@ function Home() {
     setFeedLoading(true)
     const currentCursor = isLoadMore ? cursor : null
     
-    const { data, error } = await postsService.getPublicFeed(limit, currentCursor)
+    // Use hybrid feed for logged in users, public feed otherwise
+    const fetchFeed = user ? postsService.getHybridFeed(limit, currentCursor) : postsService.getPublicFeed(limit, currentCursor)
+    const { data, error } = await fetchFeed
     
     if (!error && data) {
       if (isLoadMore) {
-        setPosts([...posts, ...data])
+        setPosts((prev) => {
+          const newPosts = data.filter(d => !prev.some(p => p.id === d.id))
+          
+          // Prevent infinite looping if markSeen is lagging
+          if (newPosts.length === 0 && data.length > 0) {
+            setTimeout(() => setHasMore(true), 1500)
+            setHasMore(false)
+            return prev
+          }
+          
+          setHasMore(data.length === limit)
+          return [...prev, ...newPosts]
+        })
       } else {
         setPosts(data)
+        setHasMore(data.length === limit)
       }
-      
-      setHasMore(data.length === limit)
       if (data.length > 0) {
         setCursor(data[data.length - 1].createdAt)
       }

@@ -7,7 +7,7 @@ import redisConnection from '../../redis/redis.config.js';
 import RedisKeys from '../../redis/redis.key.js';
 import { commentSyncQueue } from '../../queue/comment.queue.js';
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = parseInt(process.env.WORKER_BATCH_SIZE || '100', 10);
 
 const commentSyncProcessor = async () => {
   const pipeline = redisConnection.pipeline();
@@ -71,7 +71,7 @@ const commentWorker = new Worker(
   {
     ...workerOptions,
     connection: redisConnection,
-    concurrency: 1,
+    concurrency: parseInt(process.env.POST_COMMENT_SYNC_CONCURRENCY || '1', 10),
     limiter: {
       max: 1,
       duration: 1000,
@@ -84,7 +84,7 @@ commentWorker.on('ready', async () => {
     await commentSyncQueue.removeRepeatableByKey('sync-comments-batch');
     await commentSyncQueue.add('sync-comments-batch', {}, {
       repeat: {
-        every: 5000,
+        every: parseInt(process.env.WORKER_SYNC_INTERVAL_MS || '5000', 10),
         key: 'sync-comments-batch',
       },
       removeOnComplete: true,

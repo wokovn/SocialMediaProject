@@ -10,7 +10,7 @@ export const notificationWorker = new Worker(
   {
     ...workerOptions,
     connection: redisConnection,
-    concurrency: 5, // Có thể điều chỉnh dựa vào tải thực tế
+    concurrency: parseInt(process.env.NOTIFICATION_WORKER_CONCURRENCY || '5', 10),
   }
 );
 

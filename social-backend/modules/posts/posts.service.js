@@ -10,6 +10,7 @@ import postsRedis from './posts.redis.js'
 import redisService from '../../infra/redis/redis.service.js'
 import MediaService from '../media/media.service.js'
 import { fanoutQueue } from '../../infra/queue/fanout.queue.js'
+import { addRankingJobWithThrottle } from '../../infra/queue/ranking.queue.js'
 
 const sanitizeMediaAttachments = (mediaAttachments = []) => {
     if (!Array.isArray(mediaAttachments)) {
@@ -363,9 +364,121 @@ const PostsService = {
         return withSharedPosts({ postRows: feedWithMedia, viewerUserId: userId });
     },
 
-    getHybridFeed: async (userId, limit = 20) => {
-        // 1. Kéo user_feed (Push Model)
-        const userFeedIds = await redisService.lrange(`user_feed:${userId}`, 0, limit - 1);
+    getFallbackFeed: async (userId, limit = 20, cursor = null) => {
+        const idols = await db.select({ id: follows.followingId }).from(follows).where(eq(follows.followerId, userId));
+        const idolIds = idols.map(i => i.id);
+
+        let feed = [];
+        let currentCursor = cursor;
+        let loops = 0;
+        const maxLoops = 3;
+
+        const visibilityCondition = idolIds.length > 0
+            ? or(inArray(posts.userId, idolIds), eq(posts.visibility, 'public'))
+            : eq(posts.visibility, 'public');
+
+        while (feed.length < limit && loops < maxLoops) {
+            const rawPosts = await db
+                .select({
+                    id: posts.id,
+                    sharedPostId: posts.sharedPostId,
+                    content: posts.content,
+                    visibility: posts.visibility,
+                    likesCount: posts.likesCount,
+                    commentsCount: posts.commentsCount,
+                    sharesCount: posts.sharesCount,
+                    createdAt: posts.createdAt,
+                    updatedAt: posts.updatedAt,
+                    author: {
+                        id: users.id,
+                        fullName: users.fullName,
+                        username: users.username,
+                        avatar: users.avatar,
+                    },
+                })
+                .from(posts)
+                .leftJoin(users, eq(posts.userId, users.id))
+                .where(
+                    and(
+                        visibilityCondition,
+                        isNull(posts.deletedAt),
+                        currentCursor ? lt(posts.createdAt, new Date(currentCursor)) : undefined
+                    )
+                )
+                .orderBy(desc(posts.createdAt))
+                .limit(limit * 2);
+
+            if (!rawPosts.length) break;
+
+            const pipeline = redisService.pipeline();
+            rawPosts.forEach(p => pipeline.sismember(`user:seen:${userId}`, p.id));
+            const results = await pipeline.exec();
+
+            const unseenBatch = rawPosts.filter((_, i) => results[i][1] === 0);
+            feed.push(...unseenBatch);
+            
+            currentCursor = rawPosts[rawPosts.length - 1].createdAt;
+            loops++;
+        }
+
+        feed = feed.slice(0, limit);
+
+        // Đọc hết tất cả post unseen của server (hoặc max loops) -> Chỉ hiện bài cũ của Followed (bỏ qua seen)
+        if (!feed.length && idolIds.length > 0) {
+            feed = await db
+                .select({
+                    id: posts.id,
+                    sharedPostId: posts.sharedPostId,
+                    content: posts.content,
+                    visibility: posts.visibility,
+                    likesCount: posts.likesCount,
+                    commentsCount: posts.commentsCount,
+                    sharesCount: posts.sharesCount,
+                    createdAt: posts.createdAt,
+                    updatedAt: posts.updatedAt,
+                    author: {
+                        id: users.id,
+                        fullName: users.fullName,
+                        username: users.username,
+                        avatar: users.avatar,
+                    },
+                })
+                .from(posts)
+                .leftJoin(users, eq(posts.userId, users.id))
+                .where(
+                    and(
+                        inArray(posts.userId, idolIds),
+                        isNull(posts.deletedAt),
+                        cursor ? lt(posts.createdAt, new Date(cursor)) : undefined
+                    )
+                )
+                .orderBy(desc(posts.createdAt))
+                .limit(limit);
+        }
+
+        if (!feed.length) {
+            return [];
+        }
+
+        let feedWithLikes;
+        try {
+            const pipeline = redisService.pipeline();
+            feed.forEach(post => pipeline.sismember(`post:${post.id}:likes`, userId));
+            const results = await pipeline.exec();
+            feedWithLikes = feed.map((post, i) => ({ ...post, hasLiked: results[i]?.[1] === 1 }));
+        } catch (error) {
+            console.warn('Redis unavailable in getFallbackFeed; defaulting hasLiked=false');
+            feedWithLikes = feed.map((post) => ({ ...post, hasLiked: false }));
+        }
+
+        const feedWithBookmarks = await withPostBookmarks({ postRows: feedWithLikes, userId });
+        const feedWithMedia = await withPostMedia(feedWithBookmarks);
+        return withSharedPosts({ postRows: feedWithMedia, viewerUserId: userId });
+    },
+
+    getHybridFeed: async (userId, limit = 20, cursor = null) => {
+        // 1. Kéo user_feed (Push Model) - Fetch a larger chunk to allow DB pagination
+        const userFeedIds = await redisService.lrange(`user_feed:${userId}`, 0, 200);
         
         // 2. Kéo idol_posts (Pull Model)
         const idols = await db.select({ id: follows.followingId }).from(follows).where(eq(follows.followerId, userId));
@@ -374,7 +487,7 @@ const PostsService = {
         if (idols.length > 0) {
             const pipeline = redisService.pipeline();
             idols.forEach(idol => {
-                pipeline.lrange(`idol_posts:${idol.id}`, 0, limit - 1);
+                pipeline.lrange(`idol_posts:${idol.id}`, 0, 100);
             });
             const results = await pipeline.exec();
             results.forEach((res) => {
@@ -384,11 +497,37 @@ const PostsService = {
             });
         }
         
-        // 3. Trộn và lọc trùng
-        const mergedIds = [...new Set([...userFeedIds, ...idolPostsList])];
+        // 3. Trộn Friends và Hot Posts theo thuật toán Interleave
+        const friendsIds = [...new Set([...userFeedIds, ...idolPostsList])];
+        
+        let hotIds = [];
+        try {
+            hotIds = await redisService.zrevrange('global_trending_feed', 0, 50);
+        } catch (e) {
+            console.warn('Cannot fetch hot posts', e);
+        }
+
+        const mixedIds = [];
+        let fIdx = 0;
+        let hIdx = 0;
+        
+        while (fIdx < friendsIds.length || hIdx < hotIds.length) {
+            // 2 friend posts
+            for (let i = 0; i < 2 && fIdx < friendsIds.length; i++) {
+                mixedIds.push(friendsIds[fIdx++]);
+            }
+            // 1 hot post
+            if (hIdx < hotIds.length) {
+                mixedIds.push(hotIds[hIdx++]);
+            }
+        }
+        
+        const mergedIds = [...new Set(mixedIds)];
+        
         if (!mergedIds.length) {
-            // Fallback to public feed if nothing
-            return PostsService.getPublicFeed(userId, limit);
+            // Fallback if nothing
+            const fallbackPosts = await PostsService.getFallbackFeed(userId, limit, cursor);
+            return fallbackPosts.map(p => ({ ...p, isCaughtUp: true }));
         }
         
         // 4. Lọc Seen Posts (Bloom Filter)
@@ -401,39 +540,83 @@ const PostsService = {
         }
         
         if (!unseenIds.length) {
-             return [];
+            const fallbackPosts = await PostsService.getFallbackFeed(userId, limit, cursor);
+            return fallbackPosts.map(p => ({ ...p, isCaughtUp: true }));
         }
         
-        const idsToFetch = unseenIds.slice(0, limit);
+        // 5. Fetch bài viết (Cache-aside với Redis)
+        const targetIds = unseenIds.slice(0, limit);
         
-        // 5. Fetch bài viết từ DB (đã bảo vệ bằng isNull(deletedAt))
-        const rawPosts = await db
-            .select({
-                id: posts.id,
-                sharedPostId: posts.sharedPostId,
-                content: posts.content,
-                visibility: posts.visibility,
-                likesCount: posts.likesCount,
-                commentsCount: posts.commentsCount,
-                sharesCount: posts.sharesCount,
-                createdAt: posts.createdAt,
-                updatedAt: posts.updatedAt,
-                author: {
-                    id: users.id,
-                    fullName: users.fullName,
-                    username: users.username,
-                    avatar: users.avatar,
-                },
-            })
-            .from(posts)
-            .leftJoin(users, eq(posts.userId, users.id))
-            .where(
-                and(
-                    inArray(posts.id, idsToFetch),
-                    isNull(posts.deletedAt)
-                )
-            )
-            .orderBy(desc(posts.createdAt));
+        // 5.1 Lấy từ Redis Cache
+        const cachePipeline = redisService.pipeline();
+        targetIds.forEach(id => cachePipeline.get(`post:cache:${id}`));
+        const cacheResults = await cachePipeline.exec();
+        
+        const cachedPosts = [];
+        const missingIds = [];
+        
+        targetIds.forEach((id, index) => {
+            const result = cacheResults[index][1];
+            if (result) {
+                cachedPosts.push(JSON.parse(result));
+            } else {
+                missingIds.push(id);
+            }
+        });
+        
+        // 5.2 Nếu thiếu, lấy từ DB
+        let dbPosts = [];
+        if (missingIds.length > 0) {
+            dbPosts = await db
+                .select({
+                    id: posts.id,
+                    sharedPostId: posts.sharedPostId,
+                    content: posts.content,
+                    visibility: posts.visibility,
+                    likesCount: posts.likesCount,
+                    commentsCount: posts.commentsCount,
+                    sharesCount: posts.sharesCount,
+                    createdAt: posts.createdAt,
+                    updatedAt: posts.updatedAt,
+                    author: {
+                        id: users.id,
+                        fullName: users.fullName,
+                        username: users.username,
+                        avatar: users.avatar,
+                    },
+                })
+                .from(posts)
+                .leftJoin(users, eq(posts.userId, users.id))
+                .where(
+                    and(
+                        inArray(posts.id, missingIds),
+                        isNull(posts.deletedAt)
+                    )
+                );
+                
+            // Lưu lại vào Cache với TTL + Jitter để chống Cache Stampede
+            if (dbPosts.length > 0) {
+                const savePipeline = redisService.pipeline();
+                const baseTtl = parseInt(process.env.POST_CACHE_TTL || '300', 10);
+                const jitterMax = parseInt(process.env.POST_CACHE_JITTER || '60', 10);
+                
+                dbPosts.forEach(p => {
+                    const ttl = baseTtl + Math.floor(Math.random() * jitterMax);
+                    savePipeline.set(`post:cache:${p.id}`, JSON.stringify(p), 'EX', ttl);
+                });
+                await savePipeline.exec();
+            }
+        }
+
+        // Khôi phục đúng thứ tự của thuật toán interleave
+        const allPostsMap = new Map([...cachedPosts, ...dbPosts].map(p => [p.id, p]));
+        const rawPosts = targetIds.map(id => allPostsMap.get(id)).filter(Boolean);
+
+        // If after filtering by cursor there are no posts left from unseenIds, fallback to old posts
+        if (!rawPosts.length) {
+            const fallbackPosts = await PostsService.getFallbackFeed(userId, limit, cursor);
+            return fallbackPosts.map(p => ({ ...p, isCaughtUp: true }));
+        }
             
         // Gắn thêm info
         let postsWithLikes;
@@ -899,6 +1082,11 @@ const PostsService = {
                 });
 
             return [updatedPost];
+        });
+
+        // Cập nhật Ranking Engine - Throttled 30s
+        addRankingJobWithThrottle(postId, 'SHARE').catch(err => {
+            console.error('[Ranking] Failed to enqueue SHARE interaction', err);
         });
 
         const sharedPost = await PostsService.getPostById(sharePostId, userId);

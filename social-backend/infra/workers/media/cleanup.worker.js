@@ -15,7 +15,7 @@ const mediaCleanupWorker = new Worker(
 	},
 	{
 		...workerOptions,
-		concurrency: 1,
+		concurrency: parseInt(process.env.MEDIA_CLEANUP_CONCURRENCY || '1', 10),
 	},
 );
 
@@ -36,7 +36,7 @@ mediaCleanupWorker.on('ready', async () => {
 					key: CLEANUP_REPEAT_KEY,
 				},
 				removeOnComplete: true,
-				removeOnFail: 200,
+				removeOnFail: parseInt(process.env.MEDIA_CLEANUP_REMOVE_ON_FAIL_COUNT || '200', 10),
 			},
 		);
 

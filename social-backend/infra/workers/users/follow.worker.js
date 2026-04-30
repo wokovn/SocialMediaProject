@@ -8,7 +8,7 @@ import redisConnection from '../../redis/redis.config.js';
 import RedisKeys from '../../redis/redis.key.js';
 import { followSyncQueue } from '../../queue/follow.queue.js';
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = parseInt(process.env.WORKER_BATCH_SIZE || '100', 10);
 
 const toCount = (row) => {
   const parsed = Number(row?.count ?? 0);
@@ -136,7 +136,7 @@ const followWorker = new Worker(
   {
     ...workerOptions,
     connection: redisConnection,
-    concurrency: 1,
+    concurrency: parseInt(process.env.USER_FOLLOW_SYNC_CONCURRENCY || '1', 10),
     limiter: {
       max: 1,
       duration: 1000,
@@ -149,7 +149,7 @@ followWorker.on('ready', async () => {
     await followSyncQueue.removeRepeatableByKey('sync-follows-batch');
     await followSyncQueue.add('sync-follows-batch', {}, {
       repeat: {
-        every: 5000,
+        every: parseInt(process.env.WORKER_SYNC_INTERVAL_MS || '5000', 10),
         key: 'sync-follows-batch',
       },
       removeOnComplete: true,
