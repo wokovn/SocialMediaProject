@@ -2,9 +2,9 @@ import redisConnection from '../redis/redis.config.js';
 // Worker options
 export const workerOptions = {
   connection: redisConnection,
-  concurrency: 5,
+  concurrency: parseInt(process.env.WORKER_DEFAULT_CONCURRENCY || '5'),
   limiter: {
-    max: 10,
-    duration: 1000,
+    max:      parseInt(process.env.WORKER_LIMITER_MAX         || '10'),
+    duration: parseInt(process.env.WORKER_LIMITER_DURATION_MS || '1000'),
   },
 };

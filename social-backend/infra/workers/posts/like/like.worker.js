@@ -11,7 +11,7 @@ export const postlikeSyncWorker = new Worker(
   {
     ...workerOptions,
     connection: redisConnection,
-    concurrency: 1,
+    concurrency: parseInt(process.env.POST_LIKE_SYNC_CONCURRENCY || '1', 10),
     limiter: {
       max: 1,
       duration: 1000,
@@ -24,7 +24,7 @@ postlikeSyncWorker.on('ready', async () => {
     await likeSyncQueue.removeRepeatableByKey('sync-likes-batch');
     await likeSyncQueue.add('sync-likes-batch', {}, {
       repeat: {
-        every: 5000,
+        every: parseInt(process.env.WORKER_SYNC_INTERVAL_MS || '5000', 10),
         key: 'sync-likes-batch',
       },
       removeOnComplete: true,

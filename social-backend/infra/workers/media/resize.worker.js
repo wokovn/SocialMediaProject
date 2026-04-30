@@ -11,7 +11,7 @@ const mediaResizeWorker = new Worker(
 	},
 	{
 		...workerOptions,
-		concurrency: 3,
+		concurrency: parseInt(process.env.MEDIA_RESIZE_CONCURRENCY || '3', 10),
 	},
 );
 

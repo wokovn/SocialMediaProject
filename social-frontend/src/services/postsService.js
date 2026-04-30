@@ -8,6 +8,17 @@ const postsService = {
     return await apiClient.get(url)
   },
 
+  // Get hybrid feed
+  async getHybridFeed(limit = 20, cursor = null) {
+    const url = `/api/posts/feed/hybrid?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`
+    return await apiClient.get(url)
+  },
+
+  // Mark posts as seen
+  async markSeen(postIds = []) {
+    return await apiClient.post('/api/posts/feed/seen', { postIds })
+  },
+
   // Get saved/bookmarked posts
   async getSavedPosts(limit = 20, cursor = null) {
     const url = `/api/posts/saved?limit=${limit}${cursor ? `&cursor=${cursor}` : ''}`

@@ -4,7 +4,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import redisConnection from "../../../redis/redis.config.js";
 import RedisKeys from "../../../redis/redis.key.js";
 
-const BATCH_SIZE = 100; // Process 100 likes per batch
+const BATCH_SIZE = parseInt(process.env.WORKER_BATCH_SIZE || '100', 10); // Process likes per batch
 
 export const postLikeSyncProcessor = async (job) => {
   // Step 1: Retrieve data from Redis buffer
