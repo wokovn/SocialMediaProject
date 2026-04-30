@@ -14,6 +14,30 @@ const PostsController = {
             return res.status(500).json({ message: 'Error retrieving public feed' });
         }
     },
+    
+    getHybridFeed: async (req, res) => {
+        const userId = req.user.sub;
+        const limit = parseInt(req.query.limit) || 20;
+        try {
+            const posts = await PostsService.getHybridFeed(userId, limit);
+            res.status(200).json(posts);
+        } catch (error) {
+            console.log('[getHybridFeed Error]', error);
+            return res.status(500).json({ message: 'Error retrieving hybrid feed' });
+        }
+    },
+    
+    markSeen: async (req, res) => {
+        const userId = req.user.sub;
+        const { postIds } = req.body;
+        try {
+            await PostsService.markSeen(userId, postIds);
+            res.status(200).json({ success: true });
+        } catch (error) {
+            console.log('[markSeen Error]', error);
+            return res.status(500).json({ message: 'Error marking posts as seen' });
+        }
+    },
 
     getSavedPosts: async (req, res) => {
         const userId = req.user.sub;

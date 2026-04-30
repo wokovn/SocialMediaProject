@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto'
 import postsRedis from './posts.redis.js'
 import redisService from '../../infra/redis/redis.service.js'
 import MediaService from '../media/media.service.js'
+import { fanoutQueue } from '../../infra/queue/fanout.queue.js'
 
 const sanitizeMediaAttachments = (mediaAttachments = []) => {
     if (!Array.isArray(mediaAttachments)) {
@@ -362,6 +363,105 @@ const PostsService = {
         return withSharedPosts({ postRows: feedWithMedia, viewerUserId: userId });
     },
 
+    getHybridFeed: async (userId, limit = 20) => {
+        // 1. Kéo user_feed (Push Model)
+        const userFeedIds = await redisService.lrange(`user_feed:${userId}`, 0, limit - 1);
+        
+        // 2. Kéo idol_posts (Pull Model)
+        const idols = await db.select({ id: follows.followingId }).from(follows).where(eq(follows.followerId, userId));
+        const idolPostsList = [];
+        
+        if (idols.length > 0) {
+            const pipeline = redisService.pipeline();
+            idols.forEach(idol => {
+                pipeline.lrange(`idol_posts:${idol.id}`, 0, limit - 1);
+            });
+            const results = await pipeline.exec();
+            results.forEach((res) => {
+                if (res[1] && res[1].length > 0) {
+                    idolPostsList.push(...res[1]);
+                }
+            });
+        }
+        
+        // 3. Trộn và lọc trùng
+        const mergedIds = [...new Set([...userFeedIds, ...idolPostsList])];
+        if (!mergedIds.length) {
+            // Fallback to public feed if nothing
+            return PostsService.getPublicFeed(userId, limit);
+        }
+        
+        // 4. Lọc Seen Posts (Bloom Filter)
+        const unseenIds = [];
+        for (const pid of mergedIds) {
+            const isSeen = await redisService.sismember(`user:seen:${userId}`, pid);
+            if (!isSeen) {
+                unseenIds.push(pid);
+            }
+        }
+        
+        if (!unseenIds.length) {
+             return [];
+        }
+        
+        const idsToFetch = unseenIds.slice(0, limit);
+        
+        // 5. Fetch bài viết từ DB (đã bảo vệ bằng isNull(deletedAt))
+        const rawPosts = await db
+            .select({
+                id: posts.id,
+                sharedPostId: posts.sharedPostId,
+                content: posts.content,
+                visibility: posts.visibility,
+                likesCount: posts.likesCount,
+                commentsCount: posts.commentsCount,
+                sharesCount: posts.sharesCount,
+                createdAt: posts.createdAt,
+                updatedAt: posts.updatedAt,
+                author: {
+                    id: users.id,
+                    fullName: users.fullName,
+                    username: users.username,
+                    avatar: users.avatar,
+                },
+            })
+            .from(posts)
+            .leftJoin(users, eq(posts.userId, users.id))
+            .where(
+                and(
+                    inArray(posts.id, idsToFetch),
+                    isNull(posts.deletedAt)
+                )
+            )
+            .orderBy(desc(posts.createdAt));
+            
+        // Gắn thêm info
+        let postsWithLikes;
+        try {
+            const pipeline = redisService.pipeline();
+            rawPosts.forEach(p => pipeline.sismember(`post:${p.id}:likes`, userId));
+            const results = await pipeline.exec();
+            postsWithLikes = rawPosts.map((p, i) => ({ ...p, hasLiked: results[i]?.[1] === 1 }));
+        } catch (error) {
+            postsWithLikes = rawPosts.map((p) => ({ ...p, hasLiked: false }));
+        }
+        
+        const postsWithBookmarks = await withPostBookmarks({ postRows: postsWithLikes, userId });
+        const postsWithMedia = await withPostMedia(postsWithBookmarks);
+        return withSharedPosts({ postRows: postsWithMedia, viewerUserId: userId });
+    },
+    
+    markSeen: async (userId, postIds) => {
+        if (!postIds || !postIds.length) return;
+        const pipeline = redisService.pipeline();
+        postIds.forEach(id => {
+            pipeline.sadd(`user:seen:${userId}`, id);
+        });
+        // TTL 7 days cho seen list để tránh phình to
+        pipeline.expire(`user:seen:${userId}`, 604800);
+        await pipeline.exec();
+    },
+
     getSavedPosts: async (userId, limit = 20, cursor = null) => {
         const savedPosts = await db
             .select({
@@ -701,6 +801,11 @@ const PostsService = {
                 console.warn('[media] Failed to enqueue resize jobs:', error.message);
             });
         }
+        
+        // Gọi Fanout Queue để phân phối bài viết vào feed
+        fanoutQueue.add('fanout', { postId, userId }).catch((error) => {
+            console.error('Failed to enqueue fanout task', error);
+        });
 
         return {
             ...postWithAuthor,

@@ -8,6 +8,9 @@ import {
   followWorker,
   mediaResizeWorker,
   mediaCleanupWorker,
+  notificationWorker,
+  rankingWorker,
+  fanoutWorker,
 } from './workers.factory.js';
 
 console.log('Starting BullMQ workers...\n');
@@ -19,6 +22,9 @@ const workers = [
   { name: 'Follow Worker', worker: followWorker },
   { name: 'Media Resize Worker', worker: mediaResizeWorker },
   { name: 'Media Cleanup Worker', worker: mediaCleanupWorker },
+  { name: 'Notification Worker', worker: notificationWorker },
+  { name: 'Ranking Worker', worker: rankingWorker },
+  { name: 'Fanout Worker', worker: fanoutWorker },
 ];
 
 workers.forEach(({ name, worker }) => {
