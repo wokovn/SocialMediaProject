@@ -17,6 +17,20 @@ const authController = {
         } catch (error) {
             return res.status(500).json({ message: error.message || 'Logout failed' });
         }
+    },
+    login: async (req, res) => {
+        const { identifier, password } = req.body;
+
+        if (!identifier || !password) {
+            return res.status(400).json({ message: 'Identifier and password are required' });
+        }
+
+        try {
+            const data = await authService.login(identifier, password);
+            return res.status(200).json(data);
+        } catch (error) {
+            return res.status(401).json({ message: error.message || 'Login failed' });
+        }
     }
 };
 

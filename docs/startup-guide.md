@@ -9,6 +9,7 @@ Full instructions for running the Social Z app locally.
 - [Node.js](https://nodejs.org/) (v18+)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (for Redis)
 - A running PostgreSQL instance (e.g. [Supabase](https://supabase.com/))
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (for local Supabase stack)
 - [FFmpeg](https://ffmpeg.org/) available on PATH (for media resize/thumbnail worker)
 
 ---
@@ -38,6 +39,72 @@ powershell -ExecutionPolicy Bypass -File .\fast-start.ps1 -SkipRedis
 
 # start all services as background jobs in current terminal
 powershell -ExecutionPolicy Bypass -File .\fast-start.ps1 -SameWindow
+```
+
+---
+
+## Supabase Local (CLI)
+
+Use this path if you want a fully local Supabase stack (DB + Auth + Storage + Realtime + Studio)
+and you want to pull the schema from your cloud project without data.
+
+1. Install the CLI (one of these):
+
+```bash
+npm install -g supabase
+# or
+npx supabase --version
+```
+
+2. Initialize Supabase in the repo root:
+
+```bash
+supabase init
+```
+
+3. Link to your cloud project (schema source):
+
+```bash
+supabase login
+supabase link --project-ref <your-project-ref>
+```
+
+4. Pull the schema (no data):
+
+```bash
+supabase db pull
+```
+
+5. Start the local stack (Docker must be running):
+
+```bash
+supabase start
+```
+
+6. Copy local values from `supabase status` into your env files:
+
+- `API URL` -> `SUPABASE_URL` and `VITE_SUPABASE_URL` (usually `http://localhost:54321`)
+- `anon key` -> `VITE_SUPABASE_ANON_KEY`
+- `service_role key` -> `SUPABASE_SERVICE_ROLE_KEY`
+- `DB URL` -> `DATABASE_URL`
+
+7. Apply migrations to local DB (empty by default):
+
+```bash
+supabase db reset
+```
+
+If you keep `supabase/seed.sql` empty, the database stays empty.
+
+8. Create the storage bucket used by the app (once):
+
+- In Studio: `http://localhost:54323` -> Storage -> New bucket -> `media` (public)
+- Or SQL:
+
+```sql
+insert into storage.buckets (id, name, public)
+values ('media', 'media', true)
+on conflict (id) do nothing;
 ```
 
 ---
@@ -187,7 +254,11 @@ The frontend starts on `http://localhost:5173` (Vite default).
 
 ## Database
 
-The SQL schemas are in `docs/database/`. Run them in order against your PostgreSQL instance to set up the tables:
+If you are using Supabase CLI with `supabase db pull`, the schema lives in
+`supabase/migrations/` and `supabase db reset` applies it locally.
+
+Otherwise, the SQL schemas are in `docs/database/`. Run them in order against
+your PostgreSQL instance to set up the tables:
 
 1. `user-create.sql`
 2. `users-alter-add-full-name.sql`
