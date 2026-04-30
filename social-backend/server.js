@@ -1,13 +1,11 @@
 import dotenv from 'dotenv';
 import app from './app.js';
 import redisClient from './infra/redis/redis.config.js';
-<<<<<<< Updated upstream
-// Load environment variables
-dotenv.config();
-=======
 import { createServer } from 'http';
 import { initializeWebsocket } from './infra/websocket/socket.js';
->>>>>>> Stashed changes
+
+// Load environment variables
+dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 
