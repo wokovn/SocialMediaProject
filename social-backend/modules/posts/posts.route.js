@@ -5,6 +5,8 @@ import express from 'express';
 const router = express.Router();
 
 router.get('/feed/public', PostsController.getPublicFeed);
+router.get('/feed/hybrid', PostsController.getHybridFeed);
+router.post('/feed/seen', PostsController.markSeen);
 router.get('/saved', PostsController.getSavedPosts);
 router.get('/user/:userId', PostsController.getUserPosts);
 router.get('/:id', PostsController.getPost);

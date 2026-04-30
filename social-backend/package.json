@@ -9,6 +9,8 @@
     "worker:dev": "nodemon infra/workers/worker.js"
   },
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
+    "@socket.io/redis-emitter": "^5.1.0",
     "@supabase/supabase-js": "^1.35.7",
     "bullmq": "^5.66.5",
     "cors": "^2.8.5",
@@ -22,6 +24,7 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "postgres": "^3.4.8",
+    "socket.io": "^4.8.3",
     "zod": "^4.3.5"
   },
   "devDependencies": {

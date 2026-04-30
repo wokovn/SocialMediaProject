@@ -269,6 +269,74 @@ user:456:bookmarks → {123, 456, 789}
 
 ---
 
+### Feed & Notification
+
+#### Global Trending Feed
+**Pattern:** `global_trending_feed`
+
+**Type:** Sorted Set
+
+**Description:** Stores the top trending posts sorted by their calculated hot score (Ranking Engine).
+
+**Operations:**
+- `ZADD` to add/update post score
+- `ZREVRANGE` to fetch top posts
+
+---
+
+#### User Personal Feed
+**Pattern:** `user_feed:{userId}`
+
+**Type:** List
+
+**Description:** Stores the post IDs for a user's personalized feed (Push Model). Size is capped using `LTRIM`.
+
+**Operations:**
+- `LPUSH` to add new post ID
+- `LTRIM` to cap list size
+- `LRANGE` to fetch feed
+
+---
+
+#### Idol Posts List
+**Pattern:** `idol_posts:{userId}`
+
+**Type:** List
+
+**Description:** Stores post IDs published by an Idol/KOL (Pull Model).
+
+**Operations:**
+- `LPUSH` / `LRANGE`
+
+---
+
+#### User Seen Filter
+**Pattern:** `user:seen:{userId}`
+
+**Type:** Set (or Bloom Filter module)
+
+**Description:** Tracks post IDs that the user has already seen to prevent duplicate feed entries.
+
+**Operations:**
+- `SADD` or `BF.ADD`
+
+---
+
+#### User Online Presence
+**Pattern:** `user:online:{userId}`
+
+**Type:** String
+
+**Description:** Indicates if a user is currently connected via Websocket.
+
+**TTL:** 60 seconds (dynamic via `PRESENCE_ONLINE_TTL`)
+
+**Operations:**
+- `SET EX NX` on connection
+- `DEL` on disconnect
+
+---
+
 ## BullMQ Queue Keys
 
 BullMQ automatically manages these keys, but they follow predictable patterns:
