@@ -58,26 +58,39 @@ class AuthService {
     }
   }
 
-  async signIn(email, password) {
+  async signIn(identifier, password) {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
+      // Call backend to handle login (supports email or username)
+      const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ identifier, password })
       })
 
-      if (error) throw error
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed')
+      }
 
       // Store access token
       if (data.session?.access_token) {
         this.setToken(data.session.access_token)
       }
 
-      // Print JWT token
-      console.log('=== SIGN IN SUCCESS ===')
+      // Sync Supabase client state (optional but good for consistency)
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token
+      })
+
+      if (sessionError) console.error('Failed to sync session:', sessionError)
+
+      console.log('=== SIGN IN SUCCESS (via Backend) ===')
       console.log('Access Token:', data.session?.access_token)
-      console.log('Refresh Token:', data.session?.refresh_token)
       console.log('User:', data.user)
-      console.log('Token Expires At:', new Date(data.session?.expires_at * 1000))
       console.log('=====================')
 
       return { data, error: null }
