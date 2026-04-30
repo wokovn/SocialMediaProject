@@ -5,7 +5,7 @@ import authService from '../services/authService'
 function Login() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
-    email: '',
+    identifier: '',
     password: ''
   })
   const [loading, setLoading] = useState(false)
@@ -24,7 +24,7 @@ function Login() {
     setMessage({ type: '', text: '' })
 
     const { data, error } = await authService.signIn(
-      formData.email,
+      formData.identifier,
       formData.password
     )
 
@@ -61,16 +61,16 @@ function Login() {
         <form onSubmit={handleLogin} className="bg-white p-8 rounded-lg shadow-sm border border-gray-200">
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email
+              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
+                Email or Username
               </label>
               <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
+                type="text"
+                id="identifier"
+                name="identifier"
+                value={formData.identifier}
                 onChange={handleChange}
-                placeholder="you@example.com"
+                placeholder="you@example.com or username"
                 className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                 required
               />
