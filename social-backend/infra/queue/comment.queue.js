@@ -1,9 +1,4 @@
-import { Queue } from 'bullmq';
-import { queueOptions } from './queue.config.js';
-import redisConnection from '../redis/redis.config.js';
+import { createQueue } from '../workers/workers.config.js';
 import QueueNames from './queue.names.js';
 
-export const commentSyncQueue = new Queue(QueueNames.POST_COMMENT_QUEUE, {
-  connection: redisConnection,
-  defaultJobOptions: queueOptions,
-});
+export const commentSyncQueue = createQueue(QueueNames.POST_COMMENT_QUEUE);

@@ -16,7 +16,7 @@
  *   This is acceptable — social feeds don't need millisecond accuracy.
  */
 
-import redisClient from '../../redis/redis.config.js';
+import redisClient, { isRedisEnabled } from '../../redis/redis.config.js';
 import { addDecayUpdateJob } from '../../queue/ranking.queue.js';
 import { HOT_ZSET } from './ranking.processor.js';
 
@@ -31,6 +31,7 @@ const ENQUEUE_DELAY_MS = parseInt(process.env.RANKING_DECAY_ENQUEUE_DELAY_MS || 
  * Called by a setInterval in server.js or a cron runner.
  */
 export const runDecayRefresh = async () => {
+    if (!isRedisEnabled) return;
     try {
         // Fetch top N post IDs from the hot sorted set (highest score first)
         const topPostIds = await redisClient.zrevrange(HOT_ZSET, 0, DECAY_REFRESH_TOP_N - 1);
@@ -59,6 +60,10 @@ export const runDecayRefresh = async () => {
  * @param {number} intervalMs - How often to run (default: 1 hour)
  */
 export const startDecayScheduler = (intervalMs = 60 * 60 * 1000) => {
+    if (!isRedisEnabled) {
+        console.warn('[DecayScheduler] Redis disabled — scheduler will not run.');
+        return null;
+    }
     console.log(`[DecayScheduler] Started — refreshing top ${DECAY_REFRESH_TOP_N} posts every ${intervalMs / 60000} minutes.`);
     // Run once immediately on startup, then on interval
     runDecayRefresh();

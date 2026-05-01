@@ -3,10 +3,13 @@ import { queueOptions } from './queue.config.js';
 import redisConnection from '../redis/redis.config.js';
 import QueueNames from './queue.names.js';
 
-export const rankingQueue = new Queue(QueueNames.RANKING_QUEUE, {
-  connection: redisConnection,
-  defaultJobOptions: queueOptions,
-});
+// When Redis is disabled, redisConnection is null — BullMQ Queue will be inert.
+export const rankingQueue = redisConnection
+  ? new Queue(QueueNames.RANKING_QUEUE, {
+      connection: redisConnection,
+      defaultJobOptions: queueOptions,
+    })
+  : null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config
@@ -45,38 +48,44 @@ const INTERACTION_WEIGHTS = {
  * qua Lua atomic → không mất interaction dù job bị throttle hay skip.
  */
 export const addRankingJobWithThrottle = async (postId, interactionType) => {
-    // ── STEP 1: Throttle check ──────────────────────────────────────────────
-    const lockKey = `lock:ranking:${postId}`;
-    const acquired = await redisConnection.set(lockKey, '1', 'NX', 'EX', THROTTLE_SECONDS);
+    if (!redisConnection || !rankingQueue) return { added: false, reason: 'redis_disabled' };
+    try {
+        // ── STEP 1: Throttle check ──────────────────────────────────────────────
+        const lockKey = `lock:ranking:${postId}`;
+        const acquired = await redisConnection.set(lockKey, '1', 'NX', 'EX', THROTTLE_SECONDS);
 
-    if (!acquired) {
-        return { added: false, reason: 'throttled' };
-    }
-
-    // ── STEP 2: Threshold check (5%) ────────────────────────────────────────
-    const interactionKey = interactionType.toUpperCase();
-    const weight = INTERACTION_WEIGHTS[interactionKey] ?? 1;
-
-    // [BUG FIX] Key phải khớp với format trong ranking.processor.js: post:{postId}:interactions:total
-    const currentRaw = await redisConnection.get(`post:${postId}:interactions:total`);
-    const currentInteractions = currentRaw !== null ? Number(currentRaw) : 0;
-
-    if (currentInteractions >= MIN_INTERACTIONS) {
-        const changePercent = (weight / currentInteractions) * 100;
-        if (changePercent < THRESHOLD_PERCENT) {
-            // Interaction is too small relative to post's existing score base.
-            // Release the throttle lock so next interaction can re-check.
-            await redisConnection.del(lockKey);
-            return { added: false, reason: `below_threshold (${changePercent.toFixed(2)}% < ${THRESHOLD_PERCENT}%)` };
+        if (!acquired) {
+            return { added: false, reason: 'throttled' };
         }
+
+        // ── STEP 2: Threshold check (5%) ────────────────────────────────────────
+        const interactionKey = interactionType.toUpperCase();
+        const weight = INTERACTION_WEIGHTS[interactionKey] ?? 1;
+
+        // [BUG FIX] Key phải khớp với format trong ranking.processor.js: post:{postId}:interactions:total
+        const currentRaw = await redisConnection.get(`post:${postId}:interactions:total`);
+        const currentInteractions = currentRaw !== null ? Number(currentRaw) : 0;
+
+        if (currentInteractions >= MIN_INTERACTIONS) {
+            const changePercent = (weight / currentInteractions) * 100;
+            if (changePercent < THRESHOLD_PERCENT) {
+                // Interaction is too small relative to post's existing score base.
+                // Release the throttle lock so next interaction can re-check.
+                await redisConnection.del(lockKey);
+                return { added: false, reason: `below_threshold (${changePercent.toFixed(2)}% < ${THRESHOLD_PERCENT}%)` };
+            }
+        }
+
+        // ── STEP 3: Add job ─────────────────────────────────────────────────────
+        await rankingQueue.add('rank', { postId, interactionType }, {
+            jobId: `rank:${postId}:${Date.now()}`,
+        });
+
+        return { added: true };
+    } catch (err) {
+        console.warn('[RankingQueue] Redis unavailable, skipping ranking job:', err.message);
+        return { added: false, reason: 'redis_error' };
     }
-
-    // ── STEP 3: Add job ─────────────────────────────────────────────────────
-    await rankingQueue.add('rank', { postId, interactionType }, {
-        jobId: `rank:${postId}:${Date.now()}`,
-    });
-
-    return { added: true };
 };
 
 /**
@@ -85,8 +94,13 @@ export const addRankingJobWithThrottle = async (postId, interactionType) => {
  * Not throttled — scheduler controls its own frequency.
  */
 export const addDecayUpdateJob = async (postId) => {
-    await rankingQueue.add('rank', { postId, interactionType: 'DECAY_UPDATE' }, {
-        jobId: `decay:${postId}:${Date.now()}`,
-        priority: 10, // lower priority than real interactions (1=highest, 10=low)
-    });
+    if (!redisConnection || !rankingQueue) return;
+    try {
+        await rankingQueue.add('rank', { postId, interactionType: 'DECAY_UPDATE' }, {
+            jobId: `decay:${postId}:${Date.now()}`,
+            priority: 10, // lower priority than real interactions (1=highest, 10=low)
+        });
+    } catch (err) {
+        console.warn('[RankingQueue] Redis unavailable, skipping decay job:', err.message);
+    }
 };

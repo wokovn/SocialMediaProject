@@ -28,7 +28,11 @@ const workers = [
 ];
 
 workers.forEach(({ name, worker }) => {
-  console.log(`${name} started`);
+  if (worker) {
+    console.log(`${name} started`);
+  } else {
+    console.warn(`${name} skipped (Redis disabled)`);
+  }
 });
 
 console.log('\nAll workers are running and listening for jobs...\n');
@@ -36,14 +40,14 @@ console.log('\nAll workers are running and listening for jobs...\n');
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('\nSIGTERM received, closing workers gracefully...');
-  await Promise.all(workers.map(({ worker }) => worker.close()));
+  await Promise.all(workers.filter(w => w.worker).map(({ worker }) => worker.close()));
   console.log('All workers closed');
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   console.log('\nSIGINT received, closing workers gracefully...');
-  await Promise.all(workers.map(({ worker }) => worker.close()));
+  await Promise.all(workers.filter(w => w.worker).map(({ worker }) => worker.close()));
   console.log('All workers closed');
   process.exit(0);
 });

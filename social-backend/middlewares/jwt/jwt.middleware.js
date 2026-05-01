@@ -15,7 +15,12 @@ export async function verifySupabaseJWT(req, res, next) {
 
     const token = authHeader.split(' ')[1];
 
-    const isBlacklisted = await authRedis.isBlacklisted(token);
+    let isBlacklisted = false;
+    try {
+      isBlacklisted = await authRedis.isBlacklisted(token);
+    } catch (err) {
+      console.warn('[JWT] Redis unavailable, skipping blacklist check:', err.message);
+    }
     if (isBlacklisted) {
       return res.status(401).json({ message: 'Token has been revoked' });
     }

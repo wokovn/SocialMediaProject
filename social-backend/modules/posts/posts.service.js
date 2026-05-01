@@ -410,11 +410,17 @@ const PostsService = {
 
             if (!rawPosts.length) break;
 
-            const pipeline = redisService.pipeline();
-            rawPosts.forEach(p => pipeline.sismember(`user:seen:${userId}`, p.id));
-            const results = await pipeline.exec();
-
-            const unseenBatch = rawPosts.filter((_, i) => results[i][1] === 0);
+            // Nếu Redis sập, bỏ qua seen-filter và lấy toàn bộ bài
+            let unseenBatch;
+            try {
+                const pipeline = redisService.pipeline();
+                rawPosts.forEach(p => pipeline.sismember(`user:seen:${userId}`, p.id));
+                const results = await pipeline.exec();
+                unseenBatch = rawPosts.filter((_, i) => results[i][1] === 0);
+            } catch (err) {
+                console.warn('[Feed] Redis unavailable in getFallbackFeed seen-filter, skipping filter');
+                unseenBatch = rawPosts;
+            }
             feed.push(...unseenBatch);
             
             currentCursor = rawPosts[rawPosts.length - 1].createdAt;
@@ -477,24 +483,41 @@ const PostsService = {
     },
 
     getHybridFeed: async (userId, limit = 20, cursor = null) => {
-        // 1. Kéo user_feed (Push Model) - Fetch a larger chunk to allow DB pagination
-        const userFeedIds = await redisService.lrange(`user_feed:${userId}`, 0, 200);
-        
+        // 1. Kéo user_feed (Push Model) — nếu Redis sập, fallback về DB feed
+        let userFeedIds = [];
+        let redisAvailable = true;
+        try {
+            userFeedIds = await redisService.lrange(`user_feed:${userId}`, 0, 200);
+        } catch (err) {
+            console.warn('[Feed] Redis unavailable in getHybridFeed, falling back to DB feed:', err.message);
+            redisAvailable = false;
+        }
+
+        // Nếu Redis hoàn toàn sập, đi thẳng về getFallbackFeed
+        if (!redisAvailable) {
+            const fallbackPosts = await PostsService.getFallbackFeed(userId, limit, cursor);
+            return fallbackPosts.map(p => ({ ...p, isCaughtUp: true }));
+        }
+
         // 2. Kéo idol_posts (Pull Model)
         const idols = await db.select({ id: follows.followingId }).from(follows).where(eq(follows.followerId, userId));
         const idolPostsList = [];
         
         if (idols.length > 0) {
-            const pipeline = redisService.pipeline();
-            idols.forEach(idol => {
-                pipeline.lrange(`idol_posts:${idol.id}`, 0, 100);
-            });
-            const results = await pipeline.exec();
-            results.forEach((res) => {
-                if (res[1] && res[1].length > 0) {
-                    idolPostsList.push(...res[1]);
-                }
-            });
+            try {
+                const pipeline = redisService.pipeline();
+                idols.forEach(idol => {
+                    pipeline.lrange(`idol_posts:${idol.id}`, 0, 100);
+                });
+                const results = await pipeline.exec();
+                results.forEach((res) => {
+                    if (res[1] && res[1].length > 0) {
+                        idolPostsList.push(...res[1]);
+                    }
+                });
+            } catch (err) {
+                console.warn('[Feed] Redis unavailable for idol_posts, skipping:', err.message);
+            }
         }
         
         // 3. Trộn Friends và Hot Posts theo thuật toán Interleave
@@ -525,18 +548,23 @@ const PostsService = {
         const mergedIds = [...new Set(mixedIds)];
         
         if (!mergedIds.length) {
-            // Fallback if nothing
+            // Fallback if nothing in Redis feed at all
             const fallbackPosts = await PostsService.getFallbackFeed(userId, limit, cursor);
             return fallbackPosts.map(p => ({ ...p, isCaughtUp: true }));
         }
         
-        // 4. Lọc Seen Posts (Bloom Filter)
+        // 4. Lọc Seen Posts — nếu Redis sập thì bỏ qua filter, lấy toàn bộ
         const unseenIds = [];
-        for (const pid of mergedIds) {
-            const isSeen = await redisService.sismember(`user:seen:${userId}`, pid);
-            if (!isSeen) {
-                unseenIds.push(pid);
+        try {
+            for (const pid of mergedIds) {
+                const isSeen = await redisService.sismember(`user:seen:${userId}`, pid);
+                if (!isSeen) {
+                    unseenIds.push(pid);
+                }
             }
+        } catch (err) {
+            console.warn('[Feed] Redis unavailable for seen-filter, skipping:', err.message);
+            unseenIds.push(...mergedIds);
         }
         
         if (!unseenIds.length) {
@@ -547,22 +575,25 @@ const PostsService = {
         // 5. Fetch bài viết (Cache-aside với Redis)
         const targetIds = unseenIds.slice(0, limit);
         
-        // 5.1 Lấy từ Redis Cache
-        const cachePipeline = redisService.pipeline();
-        targetIds.forEach(id => cachePipeline.get(`post:cache:${id}`));
-        const cacheResults = await cachePipeline.exec();
-        
+        // 5.1 Lấy từ Redis Cache — nếu Redis sập, treat tất cả là cache miss
         const cachedPosts = [];
-        const missingIds = [];
-        
-        targetIds.forEach((id, index) => {
-            const result = cacheResults[index][1];
-            if (result) {
-                cachedPosts.push(JSON.parse(result));
-            } else {
-                missingIds.push(id);
-            }
-        });
+        let missingIds = [...targetIds];
+        try {
+            const cachePipeline = redisService.pipeline();
+            targetIds.forEach(id => cachePipeline.get(`post:cache:${id}`));
+            const cacheResults = await cachePipeline.exec();
+            missingIds = [];
+            targetIds.forEach((id, index) => {
+                const result = cacheResults[index][1];
+                if (result) {
+                    cachedPosts.push(JSON.parse(result));
+                } else {
+                    missingIds.push(id);
+                }
+            });
+        } catch (err) {
+            console.warn('[Feed] Redis unavailable for post cache, fetching all from DB:', err.message);
+        }
         
         // 5.2 Nếu thiếu, lấy từ DB
         let dbPosts = [];
@@ -596,15 +627,18 @@ const PostsService = {
                 
             // Lưu lại vào Cache với TTL + Jitter để chống Cache Stampede
             if (dbPosts.length > 0) {
-                const savePipeline = redisService.pipeline();
-                const baseTtl = parseInt(process.env.POST_CACHE_TTL || '300', 10);
-                const jitterMax = parseInt(process.env.POST_CACHE_JITTER || '60', 10);
-                
-                dbPosts.forEach(p => {
-                    const ttl = baseTtl + Math.floor(Math.random() * jitterMax);
-                    savePipeline.set(`post:cache:${p.id}`, JSON.stringify(p), 'EX', ttl);
-                });
-                await savePipeline.exec();
+                try {
+                    const savePipeline = redisService.pipeline();
+                    const baseTtl = parseInt(process.env.POST_CACHE_TTL || '300', 10);
+                    const jitterMax = parseInt(process.env.POST_CACHE_JITTER || '60', 10);
+                    dbPosts.forEach(p => {
+                        const ttl = baseTtl + Math.floor(Math.random() * jitterMax);
+                        savePipeline.set(`post:cache:${p.id}`, JSON.stringify(p), 'EX', ttl);
+                    });
+                    await savePipeline.exec();
+                } catch (err) {
+                    console.warn('[Feed] Redis unavailable, skipping post cache write:', err.message);
+                }
             }
         }
 
@@ -612,37 +646,55 @@ const PostsService = {
         const allPostsMap = new Map([...cachedPosts, ...dbPosts].map(p => [p.id, p]));
         const rawPosts = targetIds.map(id => allPostsMap.get(id)).filter(Boolean);
 
-        // If after filtering by cursor there are no posts left from unseenIds, fallback to old posts
-        if (!rawPosts.length) {
-            const fallbackPosts = await PostsService.getFallbackFeed(userId, limit, cursor);
-            return fallbackPosts.map(p => ({ ...p, isCaughtUp: true }));
-        }
+        let processedHybridPosts = [];
+
+        if (rawPosts.length > 0) {
+            // Gắn thêm info
+            let postsWithLikes;
+            try {
+                const pipeline = redisService.pipeline();
+                rawPosts.forEach(p => pipeline.sismember(`post:${p.id}:likes`, userId));
+                const results = await pipeline.exec();
+                postsWithLikes = rawPosts.map((p, i) => ({ ...p, hasLiked: results[i]?.[1] === 1 }));
+            } catch (error) {
+                postsWithLikes = rawPosts.map((p) => ({ ...p, hasLiked: false }));
+            }
             
-        // Gắn thêm info
-        let postsWithLikes;
-        try {
-            const pipeline = redisService.pipeline();
-            rawPosts.forEach(p => pipeline.sismember(`post:${p.id}:likes`, userId));
-            const results = await pipeline.exec();
-            postsWithLikes = rawPosts.map((p, i) => ({ ...p, hasLiked: results[i]?.[1] === 1 }));
-        } catch (error) {
-            postsWithLikes = rawPosts.map((p) => ({ ...p, hasLiked: false }));
+            const postsWithBookmarks = await withPostBookmarks({ postRows: postsWithLikes, userId });
+            const postsWithMedia = await withPostMedia(postsWithBookmarks);
+            processedHybridPosts = await withSharedPosts({ postRows: postsWithMedia, viewerUserId: userId });
         }
-        
-        const postsWithBookmarks = await withPostBookmarks({ postRows: postsWithLikes, userId });
-        const postsWithMedia = await withPostMedia(postsWithBookmarks);
-        return withSharedPosts({ postRows: postsWithMedia, viewerUserId: userId });
+
+        // If we don't have enough posts to fill the page, backfill with older posts from DB
+        if (processedHybridPosts.length < limit) {
+            const shortfall = limit - processedHybridPosts.length;
+            const fallbackPosts = await PostsService.getFallbackFeed(userId, shortfall, cursor);
+            
+            // Lọc bớt những bài fallback bị trùng (nếu có)
+            const existingIds = new Set(processedHybridPosts.map(p => p.id));
+            const newFallbackPosts = fallbackPosts.filter(p => !existingIds.has(p.id));
+            
+            const caughtUpPosts = newFallbackPosts.map(p => ({ ...p, isCaughtUp: true }));
+            processedHybridPosts = [...processedHybridPosts, ...caughtUpPosts];
+        }
+
+        return processedHybridPosts;
     },
     
     markSeen: async (userId, postIds) => {
         if (!postIds || !postIds.length) return;
-        const pipeline = redisService.pipeline();
-        postIds.forEach(id => {
-            pipeline.sadd(`user:seen:${userId}`, id);
-        });
-        // TTL 7 days cho seen list để tránh phình to
-        pipeline.expire(`user:seen:${userId}`, 604800);
-        await pipeline.exec();
+        try {
+            const pipeline = redisService.pipeline();
+            postIds.forEach(id => {
+                pipeline.sadd(`user:seen:${userId}`, id);
+            });
+            // TTL 7 days cho seen list để tránh phình to
+            pipeline.expire(`user:seen:${userId}`, 604800);
+            await pipeline.exec();
+        } catch (err) {
+            // Silent fail — seen tracking mất khi Redis sập nhưng không ảnh hưởng chức năng
+            console.warn('[Feed] Redis unavailable, skipping markSeen');
+        }
     },
 
     getSavedPosts: async (userId, limit = 20, cursor = null) => {

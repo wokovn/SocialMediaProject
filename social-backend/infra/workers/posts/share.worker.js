@@ -1,17 +1,16 @@
-import { Worker } from 'bullmq';
-import { workerOptions } from '../workers.config.js';
+import { createWorker } from '../workers.config.js';
 import QueueNames from '../../queue/queue.names.js';
 import db from '../../../modules/db/db.js';
 import { posts } from '../../../modules/db/schemas/index.js';
 import { eq, sql } from 'drizzle-orm';
-import redisConnection from '../../redis/redis.config.js';
+import redisService from '../../redis/redis.service.js';
 import RedisKeys from '../../redis/redis.key.js';
 import { shareSyncQueue } from '../../queue/share.queue.js';
 
 const BATCH_SIZE = parseInt(process.env.WORKER_BATCH_SIZE || '100', 10);
 
 const shareSyncProcessor = async () => {
-  const pipeline = redisConnection.pipeline();
+  const pipeline = redisService.pipeline();
   pipeline.lrange(RedisKeys.SHARE_BUFFER, 0, BATCH_SIZE - 1);
   pipeline.ltrim(RedisKeys.SHARE_BUFFER, BATCH_SIZE, -1);
 
@@ -53,7 +52,7 @@ const shareSyncProcessor = async () => {
 
     if (rawData && rawData.length > 0) {
       try {
-        await redisConnection.lpush(RedisKeys.SHARE_BUFFER, ...rawData);
+        await redisService.lpush(RedisKeys.SHARE_BUFFER, ...rawData);
       } catch (redisError) {
         console.error('[Share Sync] Critical restore error:', redisError);
       }
@@ -63,21 +62,17 @@ const shareSyncProcessor = async () => {
   }
 };
 
-const shareWorker = new Worker(
+const shareWorker = createWorker(
   QueueNames.POST_SHARE_QUEUE,
   shareSyncProcessor,
   {
-    ...workerOptions,
-    connection: redisConnection,
     concurrency: parseInt(process.env.POST_SHARE_SYNC_CONCURRENCY || '1', 10),
-    limiter: {
-      max: 1,
-      duration: 1000,
-    },
+    limiter: { max: 1, duration: 1000 },
   }
 );
 
-shareWorker.on('ready', async () => {
+if (shareWorker) {
+  shareWorker.on('ready', async () => {
   try {
     await shareSyncQueue.removeRepeatableByKey('sync-shares-batch');
     await shareSyncQueue.add('sync-shares-batch', {}, {
@@ -93,13 +88,14 @@ shareWorker.on('ready', async () => {
   }
 });
 
-shareWorker.on('completed', (job) => {
-  if (job.returnvalue?.message === 'Nothing to sync') return
-  console.log(`✓ Share sync job ${job.id} completed:`, job.returnvalue);
-});
+  shareWorker.on('completed', (job) => {
+    if (job.returnvalue?.message === 'Nothing to sync') return
+    console.log(`✓ Share sync job ${job.id} completed:`, job.returnvalue);
+  });
 
-shareWorker.on('failed', (job, err) => {
-  console.error(`✗ Share sync job ${job?.id} failed:`, err.message);
-});
+  shareWorker.on('failed', (job, err) => {
+    console.error(`✗ Share sync job ${job?.id} failed:`, err.message);
+  });
+}
 
 export default shareWorker;

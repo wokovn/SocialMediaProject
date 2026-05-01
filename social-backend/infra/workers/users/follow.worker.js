@@ -1,10 +1,9 @@
-import { Worker } from 'bullmq';
-import { workerOptions } from '../workers.config.js';
+import { createWorker } from '../workers.config.js';
 import QueueNames from '../../queue/queue.names.js';
 import db from '../../../modules/db/db.js';
 import { follows, userStats } from '../../../modules/db/schemas/index.js';
 import { eq, sql } from 'drizzle-orm';
-import redisConnection from '../../redis/redis.config.js';
+import redisService from '../../redis/redis.service.js';
 import RedisKeys from '../../redis/redis.key.js';
 import { followSyncQueue } from '../../queue/follow.queue.js';
 
@@ -16,7 +15,7 @@ const toCount = (row) => {
 };
 
 const followSyncProcessor = async () => {
-  const pipeline = redisConnection.pipeline();
+  const pipeline = redisService.pipeline();
   pipeline.lrange(RedisKeys.FOLLOW_BUFFER, 0, BATCH_SIZE - 1);
   pipeline.ltrim(RedisKeys.FOLLOW_BUFFER, BATCH_SIZE, -1);
 
@@ -120,7 +119,7 @@ const followSyncProcessor = async () => {
 
     if (rawData && rawData.length > 0) {
       try {
-        await redisConnection.lpush(RedisKeys.FOLLOW_BUFFER, ...rawData);
+        await redisService.lpush(RedisKeys.FOLLOW_BUFFER, ...rawData);
       } catch (redisError) {
         console.error('[Follow Sync] Critical restore error:', redisError);
       }
@@ -130,21 +129,17 @@ const followSyncProcessor = async () => {
   }
 };
 
-const followWorker = new Worker(
+const followWorker = createWorker(
   QueueNames.USER_FOLLOW_QUEUE,
   followSyncProcessor,
   {
-    ...workerOptions,
-    connection: redisConnection,
     concurrency: parseInt(process.env.USER_FOLLOW_SYNC_CONCURRENCY || '1', 10),
-    limiter: {
-      max: 1,
-      duration: 1000,
-    },
+    limiter: { max: 1, duration: 1000 },
   }
 );
 
-followWorker.on('ready', async () => {
+if (followWorker) {
+  followWorker.on('ready', async () => {
   try {
     await followSyncQueue.removeRepeatableByKey('sync-follows-batch');
     await followSyncQueue.add('sync-follows-batch', {}, {
@@ -160,13 +155,14 @@ followWorker.on('ready', async () => {
   }
 });
 
-followWorker.on('completed', (job) => {
-  if (job.returnvalue?.message === 'Nothing to sync') return
-  console.log(`✓ Follow sync job ${job.id} completed:`, job.returnvalue);
-});
+  followWorker.on('completed', (job) => {
+    if (job.returnvalue?.message === 'Nothing to sync') return
+    console.log(`✓ Follow sync job ${job.id} completed:`, job.returnvalue);
+  });
 
-followWorker.on('failed', (job, err) => {
-  console.error(`✗ Follow sync job ${job?.id} failed:`, err.message);
-});
+  followWorker.on('failed', (job, err) => {
+    console.error(`✗ Follow sync job ${job?.id} failed:`, err.message);
+  });
+}
 
 export default followWorker;
