@@ -1,23 +1,21 @@
-import { Worker } from 'bullmq';
-import { workerOptions } from '../../workers.config.js';
-import redisConnection from '../../../redis/redis.config.js';
+import { createWorker } from '../../workers.config.js';
 import QueueNames from '../../../queue/queue.names.js';
 import { fanoutProcessor } from './fanout.processor.js';
 
-export const fanoutWorker = new Worker(
+export const fanoutWorker = createWorker(
   QueueNames.FANOUT_QUEUE,
   fanoutProcessor,
   {
-    ...workerOptions,
-    connection: redisConnection,
     concurrency: parseInt(process.env.POST_FANOUT_CONCURRENCY || '5', 10),
   }
 );
 
-fanoutWorker.on('completed', (job) => {
-  console.log(`✓ Fanout job ${job.id} completed (Post: ${job.returnvalue?.postId}, isIdol: ${job.returnvalue?.isIdol})`);
-});
+if (fanoutWorker) {
+  fanoutWorker.on('completed', (job) => {
+    console.log(`✓ Fanout job ${job.id} completed (Post: ${job.returnvalue?.postId}, isIdol: ${job.returnvalue?.isIdol})`);
+  });
 
-fanoutWorker.on('failed', (job, err) => {
-  console.error(`✗ Fanout job ${job?.id} failed:`, err.message);
-});
+  fanoutWorker.on('failed', (job, err) => {
+    console.error(`✗ Fanout job ${job?.id} failed:`, err.message);
+  });
+}

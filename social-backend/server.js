@@ -7,15 +7,19 @@ import { startDecayScheduler } from './infra/workers/ranking/ranking.scheduler.j
 
 const PORT = process.env.PORT || 3000;
 
-redisClient
-  .ping()
-  .then(async (message) => {
-    console.log(`Redis connected: ${message}`);
-    await enableHybridPersistence();
-  })
-  .catch((error) => {
-    console.warn(`[warn] Redis unavailable. API is running in degraded mode: ${error.message}`);
-  });
+if (redisClient) {
+  redisClient
+    .ping()
+    .then(async (message) => {
+      console.log(`Redis connected: ${message}`);
+      await enableHybridPersistence();
+    })
+    .catch((error) => {
+      console.warn(`[warn] Redis unavailable. API is running in degraded mode: ${error.message}`);
+    });
+} else {
+  console.log('[info] Redis is disabled. API is running in degraded mode.');
+}
 
 const server = createServer(app);
 

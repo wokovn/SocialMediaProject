@@ -1,78 +1,71 @@
 import redisService from "../../infra/redis/redis.service.js";
 import RedisKeys from "../../infra/redis/redis.key.js";
 import { addRankingJobWithThrottle } from "../../infra/queue/ranking.queue.js";
+import db from "../db/db.js";
+import { likes, posts } from "../db/schemas/index.js";
+import { eq, and } from "drizzle-orm";
 
 const postsRedis = {
-  /**
-   * Processes a "Like" action for a specific post.
-   * Write-Behind strategy: updates cache immediately, buffers DB write asynchronously.
-   */
+  // Write-Behind: buffer vào Redis, sync DB async qua worker
+  // Fallback khi Redis sập: ghi thẳng DB (trigger tự tăng likes_count)
   async likePost(postId, userId) {
+    try {
       const pipeline = redisService.pipeline();
-
-      // 1. Buffer write for async DB persistence
-      const payload = JSON.stringify({ userId, postId, action: 'LIKE', timestamp: Date.now() });
-      pipeline.rpush(RedisKeys.LIKE_BUFFER, payload);
-
-      // 2. Update real-time cache (hot storage)
+      pipeline.rpush(RedisKeys.LIKE_BUFFER, JSON.stringify({ userId, postId, action: 'LIKE', timestamp: Date.now() }));
       pipeline.sadd(`post:${postId}:likes`, userId);
-
-      // 3. Get updated count from the SET
       pipeline.scard(`post:${postId}:likes`);
-
       const results = await pipeline.exec();
-      const likeCount = results[2][1];
-
-      // 4. Trigger ranking engine — throttled to max 1 job/30s per post
-      addRankingJobWithThrottle(postId, 'LIKE').catch(err => {
-          console.error('[Ranking] Failed to enqueue LIKE interaction', err);
-      });
-
-      return { success: true, likeCount };
+      addRankingJobWithThrottle(postId, 'LIKE').catch(err => console.error('[Ranking]', err));
+      return { success: true, likeCount: results[2][1] };
+    } catch (err) {
+      console.warn('[Like] Redis unavailable, falling back to DB:', err.message);
+      await db.insert(likes).values({ userId, postId, commentId: null }).onConflictDoNothing();
+      const [post] = await db.select({ likesCount: posts.likesCount }).from(posts).where(eq(posts.id, postId)).limit(1);
+      addRankingJobWithThrottle(postId, 'LIKE').catch(err => console.error('[Ranking]', err));
+      return { success: true, likeCount: post?.likesCount ?? 0 };
+    }
   },
 
-  /**
-   * Processes an "Unlike" action for a specific post.
-   * [FIX B3] Now triggers ranking recalculation to avoid score inflation.
-   */
+  // [FIX B3] UNLIKE triggers ranking recalculation để tránh score inflation
+  // Fallback khi Redis sập: xóa thẳng DB (trigger tự giảm likes_count)
   async unlikePost(postId, userId) {
+    try {
       const pipeline = redisService.pipeline();
-
-      // 1. Buffer write (UNLIKE)
-      const payload = JSON.stringify({ userId, postId, action: 'UNLIKE', timestamp: Date.now() });
-      pipeline.rpush(RedisKeys.LIKE_BUFFER, payload);
-
-      // 2. Remove from SET
+      pipeline.rpush(RedisKeys.LIKE_BUFFER, JSON.stringify({ userId, postId, action: 'UNLIKE', timestamp: Date.now() }));
       pipeline.srem(`post:${postId}:likes`, userId);
-
-      // 3. Get updated count
       pipeline.scard(`post:${postId}:likes`);
-
       const results = await pipeline.exec();
-      const likeCount = results[2][1];
-
-      // 4. [FIX B3] Trigger ranking engine with negative weight to reduce score
-      addRankingJobWithThrottle(postId, 'UNLIKE').catch(err => {
-          console.error('[Ranking] Failed to enqueue UNLIKE interaction', err);
-      });
-
-      return { success: true, likeCount };
+      addRankingJobWithThrottle(postId, 'UNLIKE').catch(err => console.error('[Ranking]', err));
+      return { success: true, likeCount: results[2][1] };
+    } catch (err) {
+      console.warn('[Unlike] Redis unavailable, falling back to DB:', err.message);
+      await db.delete(likes).where(and(eq(likes.postId, postId), eq(likes.userId, userId)));
+      const [post] = await db.select({ likesCount: posts.likesCount }).from(posts).where(eq(posts.id, postId)).limit(1);
+      addRankingJobWithThrottle(postId, 'UNLIKE').catch(err => console.error('[Ranking]', err));
+      return { success: true, likeCount: post?.likesCount ?? 0 };
+    }
   },
 
-  /**
-   * [FIX B1] Use SCARD (not GET) because post likes are stored in a Redis SET.
-   * GET on a SET key always returns null → count was always 0 before this fix.
-   */
+  // [FIX B1] Likes lưu dạng SET → dùng SCARD thay vì GET
   getLikeCount: async (postId) => {
-    const count = await redisService.scard(`post:${postId}:likes`);
-    return Number(count || 0);
+    try {
+      const count = await redisService.scard(`post:${postId}:likes`);
+      return Number(count || 0);
+    } catch (err) {
+      console.warn('[Like] Redis unavailable for getLikeCount, reading from DB:', err.message);
+      const [post] = await db.select({ likesCount: posts.likesCount }).from(posts).where(eq(posts.id, postId)).limit(1);
+      return post?.likesCount ?? 0;
+    }
   },
 
   getPost: async (postId) => {
-    const key = `post:${postId}`;
-    const post = await redisService.get(key);
-    return post ? JSON.parse(post) : null;
-  }
+    try {
+      const cached = await redisService.get(`post:${postId}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch (err) {
+      return null;
+    }
+  },
 };
 
 export default postsRedis;

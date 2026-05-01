@@ -1,9 +1,4 @@
-import { Queue } from 'bullmq';
-import { queueOptions } from './queue.config.js';
-import redisConnection from '../redis/redis.config.js';
+import { createQueue } from '../workers/workers.config.js';
 import QueueNames from './queue.names.js';
 
-export const followSyncQueue = new Queue(QueueNames.USER_FOLLOW_QUEUE, {
-  connection: redisConnection,
-  defaultJobOptions: queueOptions,
-});
+export const followSyncQueue = createQueue(QueueNames.USER_FOLLOW_QUEUE);

@@ -16,6 +16,22 @@ function Test-Command {
     return [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+# Reads a key=value pair from a .env file. Returns the default if the key is absent.
+function Get-EnvValue {
+    param(
+        [Parameter(Mandatory = $true)][string]$File,
+        [Parameter(Mandatory = $true)][string]$Key,
+        [string]$Default = ''
+    )
+
+    if (-not (Test-Path $File)) { return $Default }
+    $line = Get-Content $File | Where-Object { $_ -match "^\s*$Key\s*=" } | Select-Object -Last 1
+    if (-not $line) { return $Default }
+    # Strip inline comments and surrounding quotes
+    $value = ($line -split '=', 2)[1] -replace '#.*$', '' -replace '^"|"$|^''|''$', '' | ForEach-Object { $_.Trim() }
+    return $value
+}
+
 function Ensure-PathExists {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
@@ -130,8 +146,19 @@ if (-not $SkipInstall) {
     Ensure-NodeModules -ProjectDir $frontendDir -ProjectName 'frontend'
 }
 
-if (-not $SkipRedis) {
+# Determine whether Redis should be started:
+#   1. -SkipRedis flag always wins.
+#   2. Otherwise read REDIS_ENABLED from social-backend/.env (defaults to true).
+$backendEnvFile = Join-Path $backendDir '.env'
+$redisEnabledValue = Get-EnvValue -File $backendEnvFile -Key 'REDIS_ENABLED' -Default 'true'
+$shouldStartRedis = (-not $SkipRedis) -and ($redisEnabledValue -ne 'false')
+
+if ($shouldStartRedis) {
     Start-Redis -ComposeDir $backendDir
+} elseif ($SkipRedis) {
+    Write-Host '[info] Skipping Redis startup (-SkipRedis flag set).' -ForegroundColor Yellow
+} else {
+    Write-Host '[info] Skipping Redis startup (REDIS_ENABLED=false in .env).' -ForegroundColor Yellow
 }
 
 if ($SameWindow) {
