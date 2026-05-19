@@ -9,13 +9,26 @@ const isTest = process.env.NODE_ENV === 'test';
 
 export const logger = pino({
     level: isTest ? 'silent' : process.env.LOG_LEVEL || 'info',
-    transport: isProduction || isTest ? undefined : {
-        target: 'pino-pretty',
-        options: {
-            colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname'
-        }
+    transport: isTest ? undefined : {
+        targets: [
+            ...(isProduction ? [] : [{
+                target: 'pino-pretty',
+                options: {
+                    colorize: true,
+                    translateTime: 'SYS:standard',
+                    ignore: 'pid,hostname'
+                }
+            }]),
+            {
+                target: 'pino-roll',
+                options: {
+                    file: 'logs/app',
+                    size: '10m', // Rotate when file size reaches 10MB
+                    interval: '1d', // Rotate daily
+                    mkdir: true, // Ensure the logs directory is created
+                }
+            }
+        ]
     },
     mixin() {
         const store = traceStorage.getStore();

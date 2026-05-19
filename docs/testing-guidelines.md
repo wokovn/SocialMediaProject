@@ -20,7 +20,7 @@ When generating or updating tests for this repository, you **must adhere to thes
 ```javascript
 import { vi, describe, it, expect } from 'vitest';
 import request from 'supertest';
-import app from '../server.js'; // Ensure app doesn't trigger side effects on import.
+import app from '../server.js';
 import db from '../db/db.js';
 
 // Mock DB entirely
