@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import morgan from 'morgan';
+import pinoHttp from 'pino-http';
+import { logger, traceMiddleware } from './infra/logger/logger.js';
 import authRoute from './modules/auth/auth.route.js';
 import postsRoute from './modules/posts/posts.route.js';
 import commentsRoute from './modules/comments/comment.route.js';
@@ -15,7 +16,13 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(morgan('dev'));
+app.use(traceMiddleware);
+app.use(pinoHttp({
+  logger,
+  autoLogging: {
+    ignore: (req) => req.url === '/health'
+  }
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
