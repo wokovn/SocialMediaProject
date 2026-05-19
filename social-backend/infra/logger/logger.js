@@ -9,6 +9,7 @@ const isTest = process.env.NODE_ENV === 'test';
 
 export const logger = pino({
     level: isTest ? 'silent' : process.env.LOG_LEVEL || 'info',
+    redact: ['req.headers.authorization', 'req.headers.cookie'],
     transport: isTest ? undefined : {
         targets: [
             ...(isProduction || process.env.DOCKER_CONTAINER === 'true' ? [] : [{
@@ -27,6 +28,10 @@ export const logger = pino({
                     interval: '1d', // Rotate daily
                     mkdir: true, // Ensure the logs directory is created
                 }
+            },
+            {
+                target: '@logtail/pino',
+                options: { sourceToken: 'edg9gywqQ6aDn6dp2pRhA8k4' }
             }
         ]
     },

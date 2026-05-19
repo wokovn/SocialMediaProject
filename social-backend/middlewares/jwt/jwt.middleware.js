@@ -25,11 +25,16 @@ export async function verifySupabaseJWT(req, res, next) {
       return res.status(401).json({ message: 'Token has been revoked' });
     }
 
+    let issuer = process.env.SUPABASE_JWT_ISSUER || `${process.env.SUPABASE_URL}/auth/v1`;
+    if (typeof issuer === 'string' && issuer.includes('host.docker.internal')) {
+      issuer = [issuer, issuer.replace('host.docker.internal', 'localhost')];
+    }
+
     // Verify JWT
     const { payload } = await jwtVerify(token, jwks, {
       algorithms: ['ES256'],
       audience: 'authenticated',
-      issuer: `${process.env.SUPABASE_URL}/auth/v1`,
+      issuer,
     });
 
     req.user = payload;

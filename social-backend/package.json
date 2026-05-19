@@ -13,6 +13,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@logtail/node": "^0.5.8",
+    "@logtail/pino": "^0.5.8",
     "@socket.io/redis-adapter": "^8.3.0",
     "@socket.io/redis-emitter": "^5.1.0",
     "@supabase/supabase-js": "^1.35.7",

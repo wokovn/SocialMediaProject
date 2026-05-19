@@ -20,7 +20,19 @@ app.use(traceMiddleware);
 app.use(pinoHttp({
   logger,
   autoLogging: {
-    ignore: (req) => req.url === '/health'
+    ignore: (req) => req.url === '/health' || req.url.startsWith('/api/posts/feed/seen')
+  },
+  serializers: {
+    req: (req) => ({
+      id: req.id,
+      method: req.method,
+      url: req.url,
+      remoteAddress: req.remoteAddress,
+      userAgent: req.headers['user-agent']
+    }),
+    res: (res) => ({
+      statusCode: res.statusCode
+    })
   }
 }));
 app.use(express.json());
