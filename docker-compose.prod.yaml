@@ -1,0 +1,71 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: social_z_redis_prod
+    restart: always
+    command: >
+      sh -c 'redis-server /usr/local/etc/redis/redis.conf --requirepass "$$REDIS_PASSWORD"'
+    volumes:
+      - redis_data_prod:/data
+      - ./social-backend/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    env_file:
+      - ./social-backend/.env
+    networks:
+      - social_z_network_prod
+
+  backend:
+    build:
+      context: ./social-backend
+      dockerfile: Dockerfile
+    container_name: social_z_backend_prod
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    env_file:
+      - ./social-backend/.env
+    networks:
+      - social_z_network_prod
+
+  worker:
+    build:
+      context: ./social-backend
+      dockerfile: Dockerfile
+    container_name: social_z_worker_prod
+    command: node infra/workers/worker.js
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+    env_file:
+      - ./social-backend/.env
+    networks:
+      - social_z_network_prod
+
+  frontend:
+    build:
+      context: ./social-frontend
+      dockerfile: Dockerfile.prod
+    container_name: social_z_frontend_prod
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    env_file:
+      - ./social-frontend/.env
+    networks:
+      - social_z_network_prod
+
+volumes:
+  redis_data_prod:
+
+networks:
+  social_z_network_prod:
+    driver: bridge

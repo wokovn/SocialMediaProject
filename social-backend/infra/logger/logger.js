@@ -11,7 +11,7 @@ export const logger = pino({
     level: isTest ? 'silent' : process.env.LOG_LEVEL || 'info',
     transport: isTest ? undefined : {
         targets: [
-            ...(isProduction ? [] : [{
+            ...(isProduction || process.env.DOCKER_CONTAINER === 'true' ? [] : [{
                 target: 'pino-pretty',
                 options: {
                     colorize: true,

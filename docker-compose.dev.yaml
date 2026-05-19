@@ -1,0 +1,92 @@
+services:
+  # Redis for Backend
+  redis:
+    image: redis:7-alpine
+    container_name: social_z_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: >
+      sh -c 'redis-server /usr/local/etc/redis/redis.conf --requirepass "$$REDIS_PASSWORD"'
+    volumes:
+      - redis_data:/data
+      - ./social-backend/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    env_file:
+      - ./social-backend/.env
+    networks:
+      - social_z_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./social-backend
+      dockerfile: Dockerfile
+    container_name: social_z_backend
+    volumes:
+      - ./social-backend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DOCKER_CONTAINER=true
+      - PORT=3000
+      - REDIS_HOST=redis
+      - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54322/postgres
+      - SUPABASE_URL=http://host.docker.internal:54321
+    depends_on:
+      - redis
+    env_file:
+      - ./social-backend/.env
+    networks:
+      - social_z_network
+
+  # Backend Worker
+  worker:
+    build:
+      context: ./social-backend
+      dockerfile: Dockerfile
+    container_name: social_z_worker
+    command: node infra/workers/worker.js
+    volumes:
+      - ./social-backend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DOCKER_CONTAINER=true
+      - REDIS_HOST=redis
+      - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54322/postgres
+      - SUPABASE_URL=http://host.docker.internal:54321
+    depends_on:
+      - redis
+    env_file:
+      - ./social-backend/.env
+    networks:
+      - social_z_network
+
+  # Frontend Web
+  frontend:
+    build:
+      context: ./social-frontend
+      dockerfile: Dockerfile.dev
+    container_name: social_z_frontend
+    volumes:
+      - ./social-frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    depends_on:
+      - backend
+    env_file:
+      - ./social-frontend/.env
+    networks:
+      - social_z_network
+
+volumes:
+  redis_data:
+
+networks:
+  social_z_network:
+    driver: bridge
