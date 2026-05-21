@@ -8,6 +8,9 @@ export const useNotifications = () => {
   const [groupedNotifications, setGroupedNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [fetchingMore, setFetchingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
 
   const groupNotifications = (notifs) => {
     const groups = {};
@@ -55,11 +58,13 @@ export const useNotifications = () => {
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
-    const { data: notifsData, error: notifsError } = await NotificationService.getNotifications(1, 50);
+    const { data: notifsData, error: notifsError } = await NotificationService.getNotifications(null, 20);
     const { data: countData, error: countError } = await NotificationService.getUnreadCount();
     
     if (!notifsError && notifsData?.data) {
       setNotifications(notifsData.data);
+      setNextCursor(notifsData.meta?.nextCursor);
+      setHasMore(!!notifsData.meta?.nextCursor);
     }
     
     if (!countError && countData) {
@@ -67,6 +72,25 @@ export const useNotifications = () => {
     }
     setLoading(false);
   }, []);
+
+  const fetchMoreNotifications = useCallback(async () => {
+    if (!hasMore || fetchingMore || !nextCursor) return;
+    
+    setFetchingMore(true);
+    const { data: notifsData, error: notifsError } = await NotificationService.getNotifications(nextCursor, 20);
+    
+    if (!notifsError && notifsData?.data) {
+      setNotifications(prev => {
+        // filter out duplicates just in case
+        const existingIds = new Set(prev.map(n => n.id));
+        const newItems = notifsData.data.filter(n => !existingIds.has(n.id));
+        return [...prev, ...newItems];
+      });
+      setNextCursor(notifsData.meta?.nextCursor);
+      setHasMore(!!notifsData.meta?.nextCursor);
+    }
+    setFetchingMore(false);
+  }, [hasMore, fetchingMore, nextCursor]);
 
   useEffect(() => {
     fetchNotifications();
@@ -130,9 +154,12 @@ export const useNotifications = () => {
     rawNotifications: notifications,
     unreadCount,
     loading,
+    fetchingMore,
+    hasMore,
     markAsRead,
     markGroupAsRead,
     markAllAsRead,
     fetchNotifications,
+    fetchMoreNotifications,
   };
 };

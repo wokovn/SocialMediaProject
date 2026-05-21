@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from 'date-fns'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import DOMPurify from 'dompurify'
 import {
   BookmarkIcon as BookmarkOutlineIcon,
@@ -84,7 +84,7 @@ const getImageSources = (item) => {
 
 import { usePostCard } from '../hooks/usePostCard'
 
-function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared }) {
+function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared, isModal = false }) {
   const {
     isLiked,
     isBookmarked,
@@ -114,6 +114,7 @@ function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared
     closeShareModal,
     submitShare
   } = usePostCard({ post, onDeleted, onBookmarkChange, onPostShared })
+  const [, setSearchParams] = useSearchParams()
 
   const mediaItems = Array.isArray(post.media) ? post.media : []
   const safeHtml = renderPostContent(post.content)
@@ -372,7 +373,16 @@ function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared
         </button>
 
         <button
-          onClick={() => setShowComments((v) => !v)}
+          onClick={() => {
+            if (isModal) {
+              setShowComments((v) => !v);
+            } else {
+              setSearchParams(prev => {
+                prev.set('postId', post.id);
+                return prev;
+              });
+            }
+          }}
           aria-label={showComments ? 'Hide comments' : 'Show comments'}
           className={`flex items-center gap-2 transition ${
             showComments ? 'text-green-600' : 'text-gray-500 hover:text-green-600'

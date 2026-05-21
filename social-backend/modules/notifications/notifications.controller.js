@@ -4,18 +4,23 @@ import RedisKeys from '../../infra/redis/redis.key.js';
 
 export const getNotifications = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const page = parseInt(req.query.page) || 1;
+    const userId = req.user.sub;
+    const cursor = req.query.cursor;
     const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
     
-    const { data, error, count } = await supabaseService
+    let query = supabaseService
       .from('notifications')
       .select('*', { count: 'exact' })
       .eq('user_id', userId)
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .limit(limit);
+
+    if (cursor) {
+      query = query.lt('created_at', cursor);
+    }
+      
+    const { data, error, count } = await query;
       
     if (error) throw error;
     
@@ -23,20 +28,19 @@ export const getNotifications = async (req, res) => {
       data,
       meta: {
         total: count,
-        page,
         limit,
-        totalPages: Math.ceil(count / limit)
+        nextCursor: data.length > 0 ? data[data.length - 1].created_at : null
       }
     });
   } catch (error) {
-    console.error('[Notification] getNotifications error:', error);
-    return res.status(500).json({ error: error.message });
+    console.error('[Notification] getNotifications error FULL:', error);
+    return res.status(500).json({ error: error ? (error.message || String(error)) : 'Unknown error' });
   }
 };
 
 export const getUnreadCount = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     let count = 0;
 
     if (redisClient) {
@@ -65,14 +69,14 @@ export const getUnreadCount = async (req, res) => {
 
     return res.status(200).json({ count });
   } catch (error) {
-    console.error('[Notification] getUnreadCount error:', error);
-    return res.status(500).json({ error: error.message });
+    console.error('[Notification] getUnreadCount error FULL:', error);
+    return res.status(500).json({ error: error ? (error.message || String(error)) : 'Unknown error' });
   }
 };
 
 export const markAsRead = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     const { id } = req.params;
     
     const { error } = await supabaseService
@@ -100,7 +104,7 @@ export const markAsRead = async (req, res) => {
 
 export const markAllAsRead = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     
     const { error } = await supabaseService
       .from('notifications')
@@ -124,7 +128,7 @@ export const markAllAsRead = async (req, res) => {
 
 export const deleteNotification = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.sub;
     const { id } = req.params;
     
     const { error } = await supabaseService

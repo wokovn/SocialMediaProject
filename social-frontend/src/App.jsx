@@ -7,6 +7,7 @@ import SavedPosts from './pages/SavedPosts'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Admin from './pages/Admin'
+import PostDetailModal from './components/PostDetailModal'
 import './App.css'
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
           <Route path="/profile/u/:username" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />
         </Routes>
+        <PostDetailModal />
       </div>
     </Router>
   )

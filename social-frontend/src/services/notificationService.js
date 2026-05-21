@@ -1,8 +1,10 @@
 import apiClient from './apiClient';
 
 export const NotificationService = {
-  getNotifications: async (page = 1, limit = 20) => {
-    return await apiClient.get(`/api/notifications?page=${page}&limit=${limit}`);
+  getNotifications: async (cursor = null, limit = 20) => {
+    let url = `/api/notifications?limit=${limit}`;
+    if (cursor) url += `&cursor=${cursor}`;
+    return await apiClient.get(url);
   },
   getUnreadCount: async () => {
     return await apiClient.get('/api/notifications/unread-count');

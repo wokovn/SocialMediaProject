@@ -1,3 +1,4 @@
+import { v7 as uuidv7 } from 'uuid';
 import express from 'express';
 import fs from 'fs';
 import path from 'path';
@@ -75,7 +76,8 @@ app.post('/api/bots/create', async (req, res) => {
     let createdCount = 0;
     
     for (let i = 0; i < count; i++) {
-        const uuid = crypto.randomUUID().split('-')[0]; // Lấy 1 phần uuid cho ngắn gọn
+        // Tạo unique suffix bằng random hex để tránh trùng lặp như uuidv7 trong cùng 1 mili-giây
+        const uuid = crypto.randomBytes(4).toString('hex');
         const bot = new BotSimulator({
             email: `${prefix}_${uuid}@bot.local`,
             password: 'Password123!',

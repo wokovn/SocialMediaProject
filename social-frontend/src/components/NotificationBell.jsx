@@ -4,7 +4,7 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useNavigate } from 'react-router-dom';
 
 export default function NotificationBell() {
-  const { notifications, unreadCount, markGroupAsRead, markAllAsRead, fetchNotifications, markAsRead } = useNotifications();
+  const { notifications, unreadCount, markGroupAsRead, markAllAsRead, fetchNotifications, markAsRead, fetchMoreNotifications, fetchingMore, hasMore } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -36,7 +36,21 @@ export default function NotificationBell() {
     }
     setIsOpen(false);
     if (notifGroup.targetUrl) {
-      navigate(notifGroup.targetUrl);
+      if (notifGroup.targetUrl.startsWith('/post/')) {
+        const postId = notifGroup.targetUrl.split('/post/')[1];
+        navigate(`?postId=${postId}`);
+      } else {
+        navigate(notifGroup.targetUrl);
+      }
+    }
+  };
+
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.target;
+    if (scrollHeight - scrollTop <= clientHeight * 1.5) {
+      if (hasMore && !fetchingMore) {
+        fetchMoreNotifications();
+      }
     }
   };
 
@@ -111,7 +125,7 @@ export default function NotificationBell() {
             )}
           </div>
           
-          <div className="max-h-[28rem] overflow-y-auto">
+          <div className="max-h-[28rem] overflow-y-auto" onScroll={handleScroll}>
             {notifications.length === 0 ? (
               <div className="p-8 text-center flex flex-col items-center justify-center text-gray-500">
                 <BellIcon className="w-12 h-12 text-gray-300 mb-2" />
@@ -133,6 +147,11 @@ export default function NotificationBell() {
                     </div>
                   </div>
                 ))}
+                {fetchingMore && (
+                  <div className="p-4 text-center text-sm text-gray-500">
+                    Loading more...
+                  </div>
+                )}
               </div>
             )}
           </div>
