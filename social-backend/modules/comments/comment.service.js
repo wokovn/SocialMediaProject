@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { eq, and, isNull, desc, lt, inArray, sql } from 'drizzle-orm'
 import commentRedis from './comment.redis.js'
 import { addRankingJobWithThrottle } from '../../infra/queue/ranking.queue.js'
+import { dispatchNotification } from '../notifications/notifications.service.js'
 
 // Comment service - handles comment-related operations
 const CommentService = {
@@ -18,7 +19,7 @@ const CommentService = {
             }
 
             const [targetPost] = await db
-                .select({ id: posts.id })
+                .select({ id: posts.id, userId: posts.userId, content: posts.content })
                 .from(posts)
                 .where(and(eq(posts.id, postId), isNull(posts.deletedAt)))
                 .limit(1)
@@ -68,6 +69,17 @@ const CommentService = {
             // Cập nhật Ranking Engine - Throttled 30s
             addRankingJobWithThrottle(postId, 'COMMENT').catch(err => {
                 console.error('[Ranking] Failed to enqueue COMMENT interaction', err);
+            });
+
+            // Dispatch notification
+            dispatchNotification({
+                userId: targetPost.userId,
+                actorId: userId,
+                type: 'INTERACTION',
+                action: 'COMMENT',
+                targetId: postId,
+                targetUrl: `/post/${postId}`,
+                metadata: { postTitle: targetPost.content?.substring(0, 80) || '' }
             });
 
             return {

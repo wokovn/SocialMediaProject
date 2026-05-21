@@ -2,6 +2,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import db from '../db/db.js';
 import { follows, posts, users } from '../db/schemas/index.js';
 import usersRedis from './users.redis.js';
+import { dispatchNotification } from '../notifications/notifications.service.js';
 
 const USERNAME_PATTERN = /^[a-z0-9._]{3,20}$/;
 
@@ -255,6 +256,18 @@ const UsersService = {
 
     if (!profile) {
       throw new Error('User not found.');
+    }
+
+    if (writeResult.didChange && !profile.isFollowing) {
+      dispatchNotification({
+          userId: followingId,
+          actorId: followerId,
+          type: 'SOCIAL',
+          action: 'FOLLOW',
+          targetId: followerId,
+          targetUrl: `/`,
+          metadata: {}
+      });
     }
 
     const followersCount =

@@ -4,12 +4,30 @@ import { addRankingJobWithThrottle } from "../../infra/queue/ranking.queue.js";
 import db from "../db/db.js";
 import { likes, posts } from "../db/schemas/index.js";
 import { eq, and } from "drizzle-orm";
+import { dispatchNotification } from "../notifications/notifications.service.js";
 
 const postsRedis = {
   // Write-Behind: buffer vào Redis, sync DB async qua worker
   // Fallback khi Redis sập: ghi thẳng DB (trigger tự tăng likes_count)
   async likePost(postId, userId) {
     try {
+      const [post] = await db.select({ 
+        userId: posts.userId, 
+        content: posts.content 
+      }).from(posts).where(eq(posts.id, postId)).limit(1);
+
+      if (post) {
+        dispatchNotification({
+          userId: post.userId,
+          actorId: userId,
+          type: 'INTERACTION',
+          action: 'LIKE',
+          targetId: postId,
+          targetUrl: `/post/${postId}`,
+          metadata: { postTitle: post.content?.substring(0, 80) || '' }
+        });
+      }
+
       const pipeline = redisService.pipeline();
       pipeline.rpush(RedisKeys.LIKE_BUFFER, JSON.stringify({ userId, postId, action: 'LIKE', timestamp: Date.now() }));
       pipeline.sadd(`post:${postId}:likes`, userId);
@@ -20,9 +38,9 @@ const postsRedis = {
     } catch (err) {
       console.warn('[Like] Redis unavailable, falling back to DB:', err.message);
       await db.insert(likes).values({ userId, postId, commentId: null }).onConflictDoNothing();
-      const [post] = await db.select({ likesCount: posts.likesCount }).from(posts).where(eq(posts.id, postId)).limit(1);
+      const [fallbackPost] = await db.select({ likesCount: posts.likesCount }).from(posts).where(eq(posts.id, postId)).limit(1);
       addRankingJobWithThrottle(postId, 'LIKE').catch(err => console.error('[Ranking]', err));
-      return { success: true, likeCount: post?.likesCount ?? 0 };
+      return { success: true, likeCount: fallbackPost?.likesCount ?? 0 };
     }
   },
 

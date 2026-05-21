@@ -81,6 +81,12 @@ const RedisKeys = {
 
   // jwt:blacklist:<token>    → STRING – token đã bị revoke (logout)
   jwtBlacklist:        (token) => `jwt:blacklist:${token}`,
+
+  // ── Notifications (per-user) ───────────────────────────────────────────────
+  // Dùng bởi: notification.processor.js, notifications.controller.js
+
+  // notif:unread:<userId> → STRING (number) - Số lượng thông báo chưa đọc
+  notifUnread:         (userId) => `notif:unread:${userId}`,
 };
 
 export default RedisKeys;

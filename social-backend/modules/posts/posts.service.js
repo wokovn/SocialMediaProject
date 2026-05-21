@@ -11,6 +11,7 @@ import redisService from '../../infra/redis/redis.service.js'
 import MediaService from '../media/media.service.js'
 import { fanoutQueue } from '../../infra/queue/fanout.queue.js'
 import { addRankingJobWithThrottle } from '../../infra/queue/ranking.queue.js'
+import { dispatchNotification } from '../notifications/notifications.service.js'
 
 const sanitizeMediaAttachments = (mediaAttachments = []) => {
     if (!Array.isArray(mediaAttachments)) {
@@ -1094,6 +1095,7 @@ const PostsService = {
                 id: posts.id,
                 userId: posts.userId,
                 visibility: posts.visibility,
+                content: posts.content,
             })
             .from(posts)
             .where(and(eq(posts.id, postId), isNull(posts.deletedAt)))
@@ -1139,6 +1141,17 @@ const PostsService = {
         // Cập nhật Ranking Engine - Throttled 30s
         addRankingJobWithThrottle(postId, 'SHARE').catch(err => {
             console.error('[Ranking] Failed to enqueue SHARE interaction', err);
+        });
+
+        // 🔔 Dispatch Notification for Share
+        dispatchNotification({
+            userId: post.userId,
+            actorId: userId,
+            type: 'SOCIAL',
+            action: 'SHARE',
+            targetId: postId,
+            targetUrl: `/post/${postId}`,
+            metadata: { postTitle: post.content?.substring(0, 80) || '' }
         });
 
         const sharedPost = await PostsService.getPostById(sharePostId, userId);
