@@ -1,9 +1,10 @@
+import { sql } from 'drizzle-orm';
 import { pgTable, uuid, timestamp, unique, integer } from 'drizzle-orm/pg-core';
 import users from './users.schema.js';
 
 // Follows table - follow/following relationships
 export const follows = pgTable('follows', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  id: uuid('id').default(sql`uuid_generate_v7()`).primaryKey(),
   followerId: uuid('follower_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   followingId: uuid('following_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull()

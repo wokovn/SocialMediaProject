@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { pgTable, uuid, timestamp, unique } from 'drizzle-orm/pg-core';
 import users from './users.schema.js';
 import posts from './posts.schema.js';
@@ -5,7 +6,7 @@ import comments from './comments.schema.js';
 
 // Likes table - for both posts and comments
 const likes = pgTable('likes', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  id: uuid('id').default(sql`uuid_generate_v7()`).primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }),
   commentId: uuid('comment_id').references(() => comments.id, { onDelete: 'cascade' }),

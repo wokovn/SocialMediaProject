@@ -272,7 +272,7 @@ SET default_table_access_method = "heap";
 
 
 CREATE TABLE IF NOT EXISTS "public"."bookmarks" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "id" "uuid" DEFAULT public.uuid_generate_v7() NOT NULL,
     "user_id" "uuid" NOT NULL,
     "post_id" "uuid" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL
@@ -283,7 +283,7 @@ ALTER TABLE "public"."bookmarks" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."comments" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "id" "uuid" DEFAULT public.uuid_generate_v7() NOT NULL,
     "post_id" "uuid" NOT NULL,
     "user_id" "uuid" NOT NULL,
     "parent_id" "uuid",
@@ -300,7 +300,7 @@ ALTER TABLE "public"."comments" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."follows" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "id" "uuid" DEFAULT public.uuid_generate_v7() NOT NULL,
     "follower_id" "uuid" NOT NULL,
     "following_id" "uuid" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "timezone"('utc'::"text", "now"()) NOT NULL,
@@ -312,7 +312,7 @@ ALTER TABLE "public"."follows" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."likes" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "id" "uuid" DEFAULT public.uuid_generate_v7() NOT NULL,
     "user_id" "uuid" NOT NULL,
     "post_id" "uuid",
     "comment_id" "uuid",
@@ -325,7 +325,7 @@ ALTER TABLE "public"."likes" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."media" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "id" "uuid" DEFAULT public.uuid_generate_v7() NOT NULL,
     "post_id" "uuid" NOT NULL,
     "url" "text" NOT NULL,
     "media_type" "text" NOT NULL,
@@ -345,7 +345,7 @@ ALTER TABLE "public"."media" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."posts" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "id" "uuid" DEFAULT public.uuid_generate_v7() NOT NULL,
     "user_id" "uuid" NOT NULL,
     "content" "text" NOT NULL,
     "visibility" "text" DEFAULT 'public'::"text",

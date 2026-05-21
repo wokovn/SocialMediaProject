@@ -1,9 +1,10 @@
+import { sql } from 'drizzle-orm';
 import { pgTable, uuid, text, timestamp, integer } from 'drizzle-orm/pg-core';
 import posts from './posts.schema.js';
 
 // Media table - for post attachments
 const media = pgTable('media', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  id: uuid('id').default(sql`uuid_generate_v7()`).primaryKey(),
   postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }).notNull(),
   url: text('url').notNull(),
   mediaType: text('media_type').notNull(),

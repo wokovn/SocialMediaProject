@@ -5,7 +5,7 @@ import media from '../db/schemas/media.schema.js'
 import follows from '../db/schemas/follows.schema.js'
 import bookmarks from '../db/schemas/bookmarks.schema.js'
 import { eq, and, isNull, desc, inArray, asc, or, sql, lt } from 'drizzle-orm'
-import { randomUUID } from 'node:crypto'
+import { v7 as uuidv7 } from 'uuid'
 import postsRedis from './posts.redis.js'
 import redisService from '../../infra/redis/redis.service.js'
 import MediaService from '../media/media.service.js'
@@ -929,7 +929,7 @@ const PostsService = {
     async createPost({userId, content, visibility, mediaAttachments = []}) {
         const normalizedMedia = sanitizeMediaAttachments(mediaAttachments);
         const safeContent = typeof content === 'string' ? content : '';
-        const postId = randomUUID();
+        const postId = uuidv7();
 
         if (!safeContent.trim() && normalizedMedia.length === 0) {
             throw new Error('Post content or media is required');
@@ -1115,7 +1115,7 @@ const PostsService = {
             throw new Error('Post not found')
         }
 
-        const sharePostId = randomUUID();
+        const sharePostId = uuidv7();
         const shareContent = typeof content === 'string' ? content : '';
 
         const [updatedSourcePost] = await db.transaction(async (tx) => {

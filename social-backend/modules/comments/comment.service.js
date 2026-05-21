@@ -3,7 +3,7 @@ import posts from '../db/schemas/posts.schema.js'
 import users from '../db/schemas/users.schema.js'
 import likes from '../db/schemas/likes.schema.js'
 import comments from '../db/schemas/comments.schema.js'
-import { randomUUID } from 'node:crypto'
+import { v7 as uuidv7 } from 'uuid'
 import { eq, and, isNull, desc, lt, inArray, sql } from 'drizzle-orm'
 import commentRedis from './comment.redis.js'
 import { addRankingJobWithThrottle } from '../../infra/queue/ranking.queue.js'
@@ -55,7 +55,7 @@ const CommentService = {
                 return { success: false, message: 'User not found' }
             }
 
-            const commentId = randomUUID()
+            const commentId = uuidv7()
             const createdAt = new Date().toISOString()
 
             await commentRedis.postComment({

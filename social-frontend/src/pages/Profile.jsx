@@ -17,6 +17,7 @@ import profileService from '../services/profileService'
 import Modal from '../components/Modal'
 import Feed from '../components/Feed'
 import postsService from '../services/postsService'
+import NotificationBell from '../components/NotificationBell'
 import { getCroppedBlob } from '../utils/cropImage'
 
 const MAX_AVATAR_SIZE_MB = 10
@@ -328,7 +329,9 @@ function Profile() {
               Back to Feed
             </button>
             <h1 className="text-lg font-semibold text-gray-900">Profile</h1>
-            <div className="w-24" />
+            <div className="w-24 flex justify-end">
+              <NotificationBell />
+            </div>
           </div>
         </div>
       </nav>

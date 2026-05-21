@@ -1,10 +1,11 @@
+import { sql } from 'drizzle-orm';
 import { pgTable, uuid, text, timestamp, integer } from 'drizzle-orm/pg-core';
 import users from './users.schema.js';
 import posts from './posts.schema.js';
 
 // Comments table - supports nested comments/replies
 const comments = pgTable('comments', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  id: uuid('id').default(sql`uuid_generate_v7()`).primaryKey(),
   postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }).notNull(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   parentId: uuid('parent_id'),

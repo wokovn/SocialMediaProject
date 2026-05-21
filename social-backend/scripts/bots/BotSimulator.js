@@ -72,6 +72,7 @@ export class BotSimulator {
             this.accessToken = session.access_token;
             this.userId = user.id;
             this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${this.accessToken}`;
+            console.log(`[Bot ${this.username}] Khởi tạo thành công! (ID: ${this.userId})`);
             return true;
         } catch (error) {
             console.error(`[Bot ${this.username}] Lỗi init: ${error.message}`);

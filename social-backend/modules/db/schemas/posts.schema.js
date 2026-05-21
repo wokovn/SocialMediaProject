@@ -1,9 +1,10 @@
+import { sql } from 'drizzle-orm';
 import { pgTable, uuid, text, timestamp, integer } from 'drizzle-orm/pg-core';
 import users from './users.schema.js';
 
 // Posts table
 const posts = pgTable('posts', {
-  id: uuid('id').defaultRandom().primaryKey(),
+  id: uuid('id').default(sql`uuid_generate_v7()`).primaryKey(),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   sharedPostId: uuid('shared_post_id'),
   content: text('content').notNull(),

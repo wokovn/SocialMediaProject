@@ -1,7 +1,7 @@
 -- Migration: Create Notifications Table with Soft Delete and Indexes
 
 CREATE TABLE IF NOT EXISTS public.notifications (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    id UUID DEFAULT public.uuid_generate_v7() PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     actor_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     type VARCHAR(50) NOT NULL,   -- e.g., 'INTERACTION', 'NEW_POST', 'SYSTEM'

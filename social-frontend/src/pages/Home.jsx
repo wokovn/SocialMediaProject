@@ -9,6 +9,7 @@ import authService from '../services/authService'
 import postsService from '../services/postsService'
 import CreatePost from '../components/CreatePost'
 import Feed from '../components/Feed'
+import NotificationBell from '../components/NotificationBell'
 
 function Home() {
   const navigate = useNavigate()
@@ -135,6 +136,7 @@ function Home() {
               <h1 className="text-xl font-bold text-gray-900">Social Feed</h1>
             </div>
             <div className="flex items-center gap-4">
+              <NotificationBell />
               <span className="text-sm text-gray-600">
                 {user?.user_metadata?.full_name || user?.email}
               </span>
