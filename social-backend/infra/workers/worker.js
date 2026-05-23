@@ -12,6 +12,7 @@ import {
   rankingWorker,
   fanoutWorker,
 } from './workers.factory.js';
+import { setupRepeatableDecayScheduler } from './ranking/ranking.scheduler.js';
 
 console.log('Starting BullMQ workers...\n');
 
@@ -34,6 +35,9 @@ workers.forEach(({ name, worker }) => {
     console.warn(`${name} skipped (Redis disabled)`);
   }
 });
+
+// Khởi chạy các cron/repeatable jobs chuyên biệt cho worker
+setupRepeatableDecayScheduler();
 
 console.log('\nAll workers are running and listening for jobs...\n');
 

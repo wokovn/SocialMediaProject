@@ -128,6 +128,13 @@ async function fetchBootstrapData(postId) {
 // Main Processor
 // ─────────────────────────────────────────────────────────────────────────────
 export const rankingProcessor = async (job) => {
+  // Handle repeatable scheduler job to trigger decay refresh
+  if (job.name === 'DECAY_SCHEDULER_JOB') {
+    const { runDecayRefresh } = await import('./ranking.scheduler.js');
+    await runDecayRefresh();
+    return { success: true, isScheduler: true };
+  }
+
   const { postId, interactionType } = job.data;
 
   if (!postId || !interactionType) {

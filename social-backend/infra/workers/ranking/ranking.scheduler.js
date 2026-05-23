@@ -17,7 +17,7 @@
  */
 
 import redisClient, { isRedisEnabled } from '../../redis/redis.config.js';
-import { addDecayUpdateJob } from '../../queue/ranking.queue.js';
+import { addDecayUpdateJob, rankingQueue } from '../../queue/ranking.queue.js';
 import { HOT_ZSET } from './ranking.processor.js';
 
 // How many top posts to refresh per cycle
@@ -25,6 +25,9 @@ const DECAY_REFRESH_TOP_N = parseInt(process.env.RANKING_DECAY_REFRESH_N || '200
 
 // Delay between individual job enqueues to avoid queue spike (ms)
 const ENQUEUE_DELAY_MS = parseInt(process.env.RANKING_DECAY_ENQUEUE_DELAY_MS || '50');
+
+// Default interval for the decay scheduler (ms)
+const DEFAULT_DECAY_INTERVAL = parseInt(process.env.RANKING_DECAY_INTERVAL_MS || '3600000');
 
 /**
  * Enqueues DECAY_UPDATE jobs for the top N posts in the hot pool.
@@ -56,16 +59,32 @@ export const runDecayRefresh = async () => {
 };
 
 /**
- * Starts the decay scheduler.
- * @param {number} intervalMs - How often to run (default: 1 hour)
+ * Starts the decay scheduler via BullMQ Repeatable Jobs.
+ * @param {number} intervalMs - How often to run
  */
-export const startDecayScheduler = (intervalMs = 60 * 60 * 1000) => {
-    if (!isRedisEnabled) {
+export const setupRepeatableDecayScheduler = async (intervalMs = DEFAULT_DECAY_INTERVAL) => {
+    if (!isRedisEnabled || !rankingQueue) {
         console.warn('[DecayScheduler] Redis disabled — scheduler will not run.');
         return null;
     }
-    console.log(`[DecayScheduler] Started — refreshing top ${DECAY_REFRESH_TOP_N} posts every ${intervalMs / 60000} minutes.`);
-    // Run once immediately on startup, then on interval
-    runDecayRefresh();
-    return setInterval(runDecayRefresh, intervalMs);
+    
+    try {
+        // Remove existing repeatable jobs to prevent duplicates if interval changes
+        const repeatableJobs = await rankingQueue.getRepeatableJobs();
+        for (const job of repeatableJobs) {
+            if (job.name === 'DECAY_SCHEDULER_JOB') {
+                await rankingQueue.removeRepeatableByKey(job.key);
+            }
+        }
+
+        // Add new repeatable job
+        await rankingQueue.add('DECAY_SCHEDULER_JOB', {}, {
+            repeat: {
+                every: intervalMs
+            }
+        });
+        console.log(`[DecayScheduler] Setup repeatable job — refreshing top ${DECAY_REFRESH_TOP_N} posts every ${intervalMs / 60000} minutes.`);
+    } catch (err) {
+        console.error('[DecayScheduler] Failed to setup repeatable job:', err.message);
+    }
 };
