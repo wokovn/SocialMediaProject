@@ -134,3 +134,12 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# ── Kubernetes Secrets ──────────────────────────────────────────
+# Secret files chứa credentials thật (base64-encoded) — KHÔNG commit
+k8s/overlays/dev/secret.yaml
+k8s/overlays/prod/secret.yaml
+
+# Pattern chung cho bất kỳ secret K8s nào thêm sau này
+k8s/**/*.secret.yaml
+k8s/**/secret.override.yaml
