@@ -8,7 +8,7 @@ data:
   NODE_ENV: "production"
 
   # ── SUPABASE ──
-  SUPABASE_URL: "https://your-supabase-project.supabase.co"
+  SUPABASE_URL: "http://host.minikube.internal:54321"
   SUPABASE_MEDIA_BUCKET: "media"
   SUPABASE_TMP_PREFIX: "tmp"
   SUPABASE_POST_MEDIA_PREFIX: "post_media"
@@ -69,7 +69,7 @@ kind: ConfigMap
 metadata:
   name: frontend-config
 data:
-  VITE_SUPABASE_URL: "https://your-supabase-project.supabase.co"
-  VITE_SUPABASE_ANON_KEY: "your_prod_anon_key"
+  VITE_SUPABASE_URL: "http://host.minikube.internal:54321"
+  VITE_SUPABASE_ANON_KEY: "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
   # VITE_BACKEND_URL không cần nữa — Nginx reverse proxy /api/ và /socket.io/
   VITE_PRESENCE_HEARTBEAT_INTERVAL: "30"
