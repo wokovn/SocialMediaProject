@@ -145,3 +145,45 @@ export const deleteNotification = async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 };
+
+export const markGroupAsRead = async (req, res) => {
+  try {
+    const userId = req.user.sub;
+    const { groupKey } = req.params;
+    
+    // Get count of unread items in this group
+    const { count, error: countError } = await supabaseService
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('group_key', groupKey)
+      .eq('is_read', false)
+      .eq('user_id', userId);
+      
+    if (countError) throw countError;
+    
+    if (count > 0) {
+      const { error } = await supabaseService
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('group_key', groupKey)
+        .eq('is_read', false)
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      // Decrease unread count
+      if (redisClient) {
+        const current = await redisClient.get(RedisKeys.notifUnread(userId));
+        if (current) {
+          const newCount = Math.max(0, parseInt(current, 10) - count);
+          await redisClient.set(RedisKeys.notifUnread(userId), newCount);
+        }
+      }
+    }
+
+    return res.status(200).json({ success: true, countRead: count || 0 });
+  } catch (error) {
+    console.error('[Notification] markGroupAsRead error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+};

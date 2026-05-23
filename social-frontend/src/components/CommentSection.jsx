@@ -164,7 +164,7 @@ function CommentItem({ comment, postId, currentUserId, currentUser, onDeleted, o
   )
 }
 
-function CommentSection({ postId, onCommentCountChange, currentUser }) {
+function CommentSection({ postId, onCommentCountChange, currentUser, onClose }) {
   const {
     comments,
     loading,
@@ -181,7 +181,8 @@ function CommentSection({ postId, onCommentCountChange, currentUser }) {
   const currentUserId = currentUser?.id || null
 
   return (
-    <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+    <div className="mt-4 pt-4 border-t border-gray-100 space-y-3 relative">
+
       {/* New comment input */}
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input
@@ -220,15 +221,26 @@ function CommentSection({ postId, onCommentCountChange, currentUser }) {
         </div>
       )}
 
-      {hasMore && (
-        <button
-          onClick={() => loadComments(nextCursor)}
-          disabled={loading}
-          className="text-sm text-blue-600 hover:underline disabled:opacity-40 transition"
-        >
-          {loading ? 'Loading…' : 'Load more comments'}
-        </button>
-      )}
+      <div className="flex justify-between items-center pt-2">
+        {hasMore ? (
+          <button
+            onClick={() => loadComments(nextCursor)}
+            disabled={loading}
+            className="text-sm text-blue-600 hover:underline disabled:opacity-40 transition"
+          >
+            {loading ? 'Loading…' : 'Load more comments'}
+          </button>
+        ) : <div />}
+        
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="text-xs font-medium text-gray-500 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded transition"
+          >
+            Đóng
+          </button>
+        )}
+      </div>
     </div>
   )
 }

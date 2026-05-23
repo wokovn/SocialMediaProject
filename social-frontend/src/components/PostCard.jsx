@@ -373,16 +373,7 @@ function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared
         </button>
 
         <button
-          onClick={() => {
-            if (isModal) {
-              setShowComments((v) => !v);
-            } else {
-              setSearchParams(prev => {
-                prev.set('postId', post.id);
-                return prev;
-              });
-            }
-          }}
+          onClick={() => setShowComments((v) => !v)}
           aria-label={showComments ? 'Hide comments' : 'Show comments'}
           className={`flex items-center gap-2 transition ${
             showComments ? 'text-green-600' : 'text-gray-500 hover:text-green-600'
@@ -425,6 +416,7 @@ function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared
           postId={post.id}
           currentUser={currentUser}
           onCommentCountChange={(delta) => setCommentsCount((prev) => Math.max(0, prev + delta))}
+          onClose={() => setShowComments(false)}
         />
       )}
 

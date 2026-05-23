@@ -28,26 +28,25 @@ export const useNotifications = () => {
         return;
       }
       
-      if (!groups[notif.group_key]) {
-        groups[notif.group_key] = {
-          id: notif.group_key,
+      const compositeKey = notif.group_key + '_' + notif.is_read;
+      if (!groups[compositeKey]) {
+        groups[compositeKey] = {
+          id: compositeKey,
           isGroup: true,
           groupKey: notif.group_key,
+          compositeKey: compositeKey,
           type: notif.type,
           action: notif.action,
           targetUrl: notif.target_url,
-          isRead: true,
+          isRead: notif.is_read,
           items: [],
           createdAt: notif.created_at,
         };
-        result.push(groups[notif.group_key]);
+        result.push(groups[compositeKey]);
       }
       
-      const group = groups[notif.group_key];
+      const group = groups[compositeKey];
       group.items.push(notif);
-      if (!notif.is_read) {
-        group.isRead = false;
-      }
       if (new Date(notif.created_at) > new Date(group.createdAt)) {
         group.createdAt = notif.created_at;
       }
@@ -58,7 +57,7 @@ export const useNotifications = () => {
 
   const fetchNotifications = useCallback(async () => {
     setLoading(true);
-    const { data: notifsData, error: notifsError } = await NotificationService.getNotifications(null, 20);
+    const { data: notifsData, error: notifsError } = await NotificationService.getNotifications(null, 50);
     const { data: countData, error: countError } = await NotificationService.getUnreadCount();
     
     if (!notifsError && notifsData?.data) {
@@ -77,7 +76,7 @@ export const useNotifications = () => {
     if (!hasMore || fetchingMore || !nextCursor) return;
     
     setFetchingMore(true);
-    const { data: notifsData, error: notifsError } = await NotificationService.getNotifications(nextCursor, 20);
+    const { data: notifsData, error: notifsError } = await NotificationService.getNotifications(nextCursor, 50);
     
     if (!notifsError && notifsData?.data) {
       setNotifications(prev => {
@@ -99,6 +98,12 @@ export const useNotifications = () => {
   useEffect(() => {
     setGroupedNotifications(groupNotifications(notifications));
   }, [notifications]);
+
+  useEffect(() => {
+    if (!loading && !fetchingMore && hasMore && groupedNotifications.length > 0 && groupedNotifications.length < 10) {
+      fetchMoreNotifications();
+    }
+  }, [loading, fetchingMore, hasMore, groupedNotifications.length, fetchMoreNotifications]);
 
   useEffect(() => {
     if (!socket) return;
@@ -125,19 +130,17 @@ export const useNotifications = () => {
     }
   };
 
-  const markGroupAsRead = async (groupKey) => {
-    const group = groupedNotifications.find(g => g.groupKey === groupKey);
+  const markGroupAsRead = async (compositeKey) => {
+    const group = groupedNotifications.find(g => g.compositeKey === compositeKey);
     if (!group) return;
     
-    const unreadItems = group.items.filter(item => !item.is_read);
-    
     setNotifications(prev => prev.map(n => 
-      n.group_key === groupKey ? { ...n, is_read: true } : n
+      n.group_key === group.groupKey && n.is_read === false ? { ...n, is_read: true } : n
     ));
-    setUnreadCount(prev => Math.max(0, prev - unreadItems.length));
     
-    for (const item of unreadItems) {
-      await NotificationService.markAsRead(item.id);
+    const { data, error } = await NotificationService.markGroupAsRead(group.groupKey);
+    if (!error && data) {
+      setUnreadCount(prev => Math.max(0, prev - (data.countRead || 0)));
     }
   };
 

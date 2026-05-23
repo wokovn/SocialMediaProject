@@ -29,7 +29,7 @@ export default function NotificationBell() {
   const handleNotificationClick = async (notifGroup) => {
     if (!notifGroup.isRead) {
       if (notifGroup.isGroup) {
-        await markGroupAsRead(notifGroup.groupKey);
+        await markGroupAsRead(notifGroup.compositeKey);
       } else {
         await markAsRead(notifGroup.id);
       }
