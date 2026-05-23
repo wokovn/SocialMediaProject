@@ -17,6 +17,7 @@ spec:
       containers:
         - name: worker
           image: social-backend:latest
+          imagePullPolicy: Never
           command: ["node", "infra/workers/worker.js"]
           resources:
             requests:

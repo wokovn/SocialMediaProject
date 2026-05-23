@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000'
+// Mặc định dùng relative URL (Nginx proxy /api/ → backend).
+// Override bằng VITE_BACKEND_URL nếu cần gọi trực tiếp (dev không có proxy).
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || ''
 
 
 class ApiClient {

@@ -17,6 +17,7 @@ spec:
       containers:
         - name: backend
           image: social-backend:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 3000
           resources:

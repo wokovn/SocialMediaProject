@@ -14,7 +14,9 @@ export const SocketProvider = ({ children }) => {
     let heartbeatInterval = null;
 
     const initSocket = async (userId) => {
-      const socketUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+      // Khi để trống, socket.io tự kết nối đến window.location.origin
+      // Nginx sẽ proxy /socket.io/ → backend:3000
+      const socketUrl = import.meta.env.VITE_BACKEND_URL || undefined;
       
       currentSocket = io(socketUrl, {
         auth: { userId },

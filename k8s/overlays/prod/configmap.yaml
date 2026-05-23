@@ -71,5 +71,5 @@ metadata:
 data:
   VITE_SUPABASE_URL: "https://your-supabase-project.supabase.co"
   VITE_SUPABASE_ANON_KEY: "your_prod_anon_key"
-  VITE_BACKEND_URL: "https://api.my-social-app.com"
+  # VITE_BACKEND_URL không cần nữa — Nginx reverse proxy /api/ và /socket.io/
   VITE_PRESENCE_HEARTBEAT_INTERVAL: "30"

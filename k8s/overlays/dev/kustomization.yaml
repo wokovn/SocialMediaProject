@@ -4,5 +4,6 @@ resources:
   - ../../base
   - configmap.yaml
   - secret.yaml
-commonLabels:
-  env: dev
+labels:
+  - pairs:
+      env: dev

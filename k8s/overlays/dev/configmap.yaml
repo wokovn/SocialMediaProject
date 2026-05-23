@@ -71,5 +71,5 @@ metadata:
 data:
   VITE_SUPABASE_URL: "http://host.minikube.internal:54321"
   VITE_SUPABASE_ANON_KEY: "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
-  VITE_BACKEND_URL: "http://host.minikube.internal:30000"
+  # VITE_BACKEND_URL không cần nữa — Nginx reverse proxy /api/ và /socket.io/
   VITE_PRESENCE_HEARTBEAT_INTERVAL: "30"
