@@ -1,18 +1,18 @@
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import App from './App';
+import App from '../src/App';
 
 // Mock components to simplify App testing and avoid dependency issues
-vi.mock('./pages/Login', () => ({
+vi.mock('../src/pages/Login', () => ({
   default: () => <div data-testid="login-page">Login Page</div>,
 }));
-vi.mock('./components/SignUp', () => ({
+vi.mock('../src/components/SignUp', () => ({
   default: () => <div data-testid="signup-page">Sign Up Page</div>,
 }));
-vi.mock('./pages/Home', () => ({
+vi.mock('../src/pages/Home', () => ({
   default: () => <div data-testid="home-page">Home Page</div>,
 }));
-vi.mock('./pages/Profile', () => ({
+vi.mock('../src/pages/Profile', () => ({
   default: () => <div data-testid="profile-page">Profile Page</div>,
 }));
 

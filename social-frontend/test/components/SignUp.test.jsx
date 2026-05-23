@@ -1,9 +1,9 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import SignUp from './SignUp';
+import SignUp from '../../src/components/SignUp';
 import { BrowserRouter } from 'react-router-dom';
 
-vi.mock('../services/api', () => ({
+vi.mock('../../src/services/api', () => ({
     default: {
         post: vi.fn()
     }

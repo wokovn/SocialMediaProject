@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import CommentController from './comment.controller.js';
-import CommentService from './comment.service.js';
+import CommentController from '../../../modules/comments/comment.controller.js';
+import CommentService from '../../../modules/comments/comment.service.js';
 
-vi.mock('./comment.service.js', () => ({
+vi.mock('../../../modules/comments/comment.service.js', () => ({
     default: {
         postComment: vi.fn(),
         getPostComments: vi.fn(),

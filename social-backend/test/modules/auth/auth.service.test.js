@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import AuthService from './auth.service.js';
-import db from '../db/db.js';
-import { supabase } from './supabase.js';
-import authRedis from './auth.redis.js';
+import AuthService from '../../../modules/auth/auth.service.js';
+import db from '../../../modules/db/db.js';
+import { supabase } from '../../../modules/auth/supabase.js';
+import authRedis from '../../../modules/auth/auth.redis.js';
 
 // Mock dependencies
-vi.mock('../db/db.js', () => {
+vi.mock('../../../modules/db/db.js', () => {
     const mockDb = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
@@ -15,7 +15,7 @@ vi.mock('../db/db.js', () => {
     return { default: mockDb };
 });
 
-vi.mock('./supabase.js', () => ({
+vi.mock('../../../modules/auth/supabase.js', () => ({
     supabase: {
         auth: {
             signIn: vi.fn()
@@ -23,7 +23,7 @@ vi.mock('./supabase.js', () => ({
     }
 }));
 
-vi.mock('./auth.redis.js', () => ({
+vi.mock('../../../modules/auth/auth.redis.js', () => ({
     default: {
         blacklistToken: vi.fn()
     }
@@ -87,6 +87,20 @@ describe('AuthService', () => {
             await expect(AuthService.login('test@example.com', 'badpass'))
                 .rejects.toThrow('Invalid credentials');
         });
+
+        it('should propagate Supabase signIn rejection', async () => {
+            supabase.auth.signIn.mockRejectedValueOnce(new Error('network error'));
+
+            await expect(AuthService.login('test@example.com', 'password123'))
+                .rejects.toThrow('network error');
+        });
+
+        it('should propagate db errors when looking up username', async () => {
+            db.limit.mockRejectedValueOnce(new Error('db failure'));
+
+            await expect(AuthService.login('testuser', 'password123'))
+                .rejects.toThrow('db failure');
+        });
     });
 
     describe('logout()', () => {
@@ -101,6 +115,12 @@ describe('AuthService', () => {
 
             expect(authRedis.blacklistToken).toHaveBeenCalledWith('valid_token');
             expect(result.success).toBe(true);
+        });
+
+        it('should propagate blacklist failures', async () => {
+            authRedis.blacklistToken.mockRejectedValueOnce(new Error('redis down'));
+
+            await expect(AuthService.logout('valid_token')).rejects.toThrow('redis down');
         });
     });
 });
