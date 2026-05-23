@@ -68,7 +68,7 @@ eval $(minikube docker-env)         # Linux/Mac
 
 # Build images
 docker build -t social-backend:latest ./social-backend
-docker build -t social-frontend:latest ./social-frontend
+docker build -f ./social-frontend/Dockerfile.prod -t social-frontend:latest ./social-frontend
 ```
 
 ### 4. Apply cấu hình dev
