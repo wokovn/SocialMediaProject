@@ -14,6 +14,7 @@ services:
       - social_z_network_prod
 
   backend:
+    image: social-backend:latest
     build:
       context: ./social-backend
       dockerfile: Dockerfile
@@ -32,6 +33,7 @@ services:
       - social_z_network_prod
 
   worker:
+    image: social-backend:latest
     build:
       context: ./social-backend
       dockerfile: Dockerfile
@@ -49,6 +51,7 @@ services:
       - social_z_network_prod
 
   frontend:
+    image: social-frontend:latest
     build:
       context: ./social-frontend
       dockerfile: Dockerfile.prod

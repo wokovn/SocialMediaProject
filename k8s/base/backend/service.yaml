@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app: backend
+  annotations:
+    # IPVS Least Connection: pod giữ ít connection nhất nhận request mới.
+    # Tốt hơn Random vì project có WebSocket long-lived + REST API nặng nhẹ không đều.
+    # Yêu cầu: minikube start --extra-config=kube-proxy.mode=ipvs
+    service.kubernetes.io/ipvs-scheduler: "lc"
+spec:
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+      nodePort: 30000  # Expose ra ngoài Minikube để frontend gọi được
+  type: NodePort
+  selector:
+    app: backend
