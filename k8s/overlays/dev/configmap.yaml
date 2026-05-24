@@ -23,6 +23,15 @@ data:
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
 
+  # ── RATE LIMITING ──
+  RATE_LIMIT_ENABLED: "true"
+  RATE_LIMIT_WINDOW_MS: "300000"       # 5 phút cho API chung
+  RATE_LIMIT_MAX: "300"                # Tối đa 300 requests / 5 phút
+  RATE_LIMIT_AUTH_WINDOW_MS: "900000"  # 15 phút cho Auth
+  RATE_LIMIT_AUTH_MAX: "15"            # Tối đa 15 requests / 15 phút
+  RATE_LIMIT_MEDIA_WINDOW_MS: "900000" # 15 phút cho Media
+  RATE_LIMIT_MEDIA_MAX: "20"           # Tối đa 20 uploads / 15 phút
+
   # ── FEED & RANKING ──
   RANKING_TIME_DECAY_FACTOR: "1.8"
   RANKING_CMS_BONUS_WEIGHT: "10"

@@ -11,6 +11,7 @@ import usersPublicRoute from './modules/users/users.public.route.js';
 import adminRoute from './modules/admin/admin.route.js';
 import notificationsRoute from './modules/notifications/notifications.route.js';
 import { verifySupabaseJWT } from './middlewares/jwt/jwt.middleware.js';
+import { globalLimiter, authLimiter, mediaLimiter } from './middlewares/rateLimit/rateLimit.middleware.js';
 
 const app = express();
 
@@ -60,13 +61,15 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-app.use('/api/auth', authRoute);
-app.use('/api/admin', adminRoute);
-app.use('/api/users', usersPublicRoute);
-app.use('/api/posts', verifySupabaseJWT, postsRoute);
-app.use('/api/posts/:postId/comments', verifySupabaseJWT, commentsRoute);
-app.use('/api/media', verifySupabaseJWT, mediaRoute);
-app.use('/api/users', verifySupabaseJWT, usersRoute);
-app.use('/api/notifications', verifySupabaseJWT, notificationsRoute);
+app.use('/api/auth', authLimiter, authRoute);
+app.use('/api/media', mediaLimiter, verifySupabaseJWT, mediaRoute);
+
+// Các API thông thường áp dụng global rate limiter
+app.use('/api/admin', globalLimiter, adminRoute);
+app.use('/api/users', globalLimiter, usersPublicRoute);
+app.use('/api/posts', globalLimiter, verifySupabaseJWT, postsRoute);
+app.use('/api/posts/:postId/comments', globalLimiter, verifySupabaseJWT, commentsRoute);
+app.use('/api/users', globalLimiter, verifySupabaseJWT, usersRoute);
+app.use('/api/notifications', globalLimiter, verifySupabaseJWT, notificationsRoute);
 
 export default app;
