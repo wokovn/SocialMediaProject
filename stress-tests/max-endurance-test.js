@@ -15,14 +15,14 @@ export const options = {
     },
 };
 
-const BASE_URL = 'http://localhost:8080/api';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000/api';
 
 // Đọc danh sách tài khoản bot từ file botData.json có sẵn trong dự án
 // Đường dẫn tương đối so với vị trí của file script này
 const botData = JSON.parse(open('../social-backend/scripts/bots/botData.json'));
 
 // Chuẩn bị file ảnh nhị phân giả lập (~1.5MB)
-const fakeImage = open('./assets/test-image.jpg', 'b');
+const fakeImage = open('./assets/test-image.png', 'b');
 
 // Hàm setup() chạy duy nhất 1 lần trước khi chạy test chính (giai đoạn Warmup)
 // Thực hiện tự động lấy tokens từ Express API với tần suất thấp (low rate)
@@ -135,7 +135,7 @@ export default function (tokens) {
     } else {
         // --- TÁC VỤ 3: UPLOAD MEDIA & TẠO BÀI VIẾT (20% Tỉ lệ - CỰC NẶNG) ---
         const data = {
-            file: http.file(fakeImage, 'stress-image.jpg', 'image/jpeg'),
+            file: http.file(fakeImage, 'stress-image.png', 'image/png'),
         };
 
         let uploadRes = http.post(`${BASE_URL}/media/upload-temp`, data, params);

@@ -15,7 +15,7 @@ export const options = {
     },
 };
 
-const BASE_URL = 'http://localhost:8080/api';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000/api';
 
 // Đọc danh sách tài khoản bot từ file botData.json
 const botData = JSON.parse(open('../social-backend/scripts/bots/botData.json'));
