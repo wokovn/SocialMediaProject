@@ -129,46 +129,40 @@ Và đặt một file ảnh của bạn vào thư mục `stress-tests/assets/tes
 
 Sau khi chạy xong các bài kiểm thử hiệu năng, việc thu thập dữ liệu và logs là khâu quan trọng nhất để xác định nguyên nhân lỗi (502/504 Timeout) hoặc OOMKilled.
 
-### 7.1 Tạo và Xuất Báo Cáo k6 (k6 Reports Generation)
-Thay vì chỉ quan sát terminal, bạn có thể xuất các file log và tóm tắt kết quả kiểm thử k6 bằng các câu lệnh sau:
+### 7.1 Ma Trận Thời Điểm Thu Thập Logs (Timing Matrix)
 
-*   **Tùy chọn 1: Lưu toàn bộ output console của k6 ra file text:**
-    ```bash
-    k6 run stress-tests/max-endurance-test.js > stress-tests/max-endurance-run.log 2>&1
-    ```
-*   **Tùy chọn 2: Xuất tóm tắt báo cáo dưới dạng JSON (Khuyên dùng):**
-    Câu lệnh này sẽ sinh ra file JSON chứa chi tiết các chỉ số p95, p99, trung bình, min, max của từng API:
-    ```bash
-    k6 run --summary-export=stress-tests/max-endurance-summary.json stress-tests/max-endurance-test.js
-    ```
-*   **Tùy chọn 3: Xuất telemetry data thời gian thực từng giây (Raw Metrics JSON):**
-    Dùng để vẽ đồ thị diễn biến RPS và Latency theo dòng thời gian:
-    ```bash
-    k6 run --out json=stress-tests/max-endurance-raw.json stress-tests/max-endurance-test.js
-    ```
+> [!IMPORTANT]
+> **Quy tắc vàng:** Các câu lệnh thu thập log của Kubernetes (`kubectl logs`) bắt buộc phải được chạy **TRƯỚC KHI** bạn gõ lệnh dọn dẹp cluster (`kubectl delete -k ...`). Nếu bạn xóa overlay trước, Kubernetes sẽ khai tử toàn bộ các Pods đang chạy và mọi dữ liệu log lịch sử bên trong chúng sẽ bị xóa sạch vĩnh viễn khỏi cluster!
+
+| Loại Log | Lệnh Thực Thi | Thời Điểm Chạy Hợp Lý | Tại Sao? |
+| :--- | :--- | :--- | :--- |
+| **k6 Test Report** | `k6 run --summary-export=...` | **Kích hoạt ngay lúc chạy lệnh test** | k6 sẽ tự động vừa chạy vừa ghi nhận và xuất file báo cáo ngay khi kết thúc test. |
+| **Kubernetes Pods Log** | `kubectl logs -l app=backend ...` | **Khi test vừa chạy xong** (Hoặc trong lúc test nếu muốn theo dõi trực tiếp) | Thu thập toàn bộ log xử lý nội bộ của ứng dụng Express. *Phải chạy trước khi delete overlay.* |
+| **HPA Scaling Events** | `kubectl describe hpa ...` | **Khi test vừa chạy xong** (Hoặc phút thứ 15 của test lúc tải đang ở đỉnh) | Ghi nhận chính xác mốc thời gian co giãn Pod của HPA. *Phải chạy trước khi delete overlay.* |
+| **Ingress Gateway Logs** | `kubectl logs -n ingress-nginx ...` | **Khi test vừa chạy xong** | Kiểm tra mã lỗi Ingress (như 502/504) và so khớp lượng tải với k6. |
+| **Backend Crash / OOM Logs** | `kubectl logs ... --previous` | **Trong lúc test** (Nếu thấy số lần `RESTARTS` tăng lên khi chạy `kubectl get pods`) | Đọc log của Pod bị ép chết ngay trước thời điểm crash để tìm nguyên nhân quá tải RAM. |
 
 ---
 
-### 7.2 Lấy Logs từ Kubernetes Cluster (Kubernetes Harvesting)
-Khi hệ thống chịu tải cực hạn và phát sinh lỗi, hãy thu thập logs từ cluster để điều tra:
+### 7.2 Chi Tiết Các Câu Lệnh Thực Thi
 
-*   **Tác vụ 1: Lấy logs của TOÀN BỘ Pods backend Express đang chạy:**
-    Lệnh này gom log từ tất cả các backend pods được sinh ra bởi HPA và xuất ra 1 file duy nhất:
+*   **Tạo báo cáo tóm tắt k6 (Summary Report):**
+    ```bash
+    k6 run --summary-export=stress-tests/max-endurance-summary.json stress-tests/max-endurance-test.js
+    ```
+*   **Gom log của toàn bộ Backend Pods đang co giãn:**
     ```bash
     kubectl logs -l app=backend --tail=50000 > stress-tests/k8s-backend-pods.log
     ```
-*   **Tác vụ 2: Lấy logs của Ingress Gateway (Nginx Ingress Controller):**
-    Hữu ích để xem mã lỗi Ingress trả về (ví dụ: HTTP 502 Bad Gateway khi Backend bị block event loop hoặc HTTP 504 Gateway Timeout):
+*   **Gom log của Nginx Ingress Gateway:**
     ```bash
     kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=20000 > stress-tests/k8s-ingress-nginx.log
     ```
-*   **Tác vụ 3: Lấy log của Pod bị treo sập trước đó (OOMKilled hoặc Crash):**
-    Nếu Pod bị ép chết do vượt quá giới hạn RAM limit (`384Mi`), log thông thường sẽ bị mất khi Pod restart. Sử dụng cờ `--previous` để đọc log của instance ngay trước khi bị sập:
-    ```bash
-    kubectl logs -l app=backend --previous --tail=2000 > stress-tests/k8s-backend-crash.log
-    ```
-*   **Tác vụ 4: Xuất lịch sử các sự kiện co giãn của HPA (Scaling Events):**
-    Dùng để kiểm chứng HPA đã scale-up lúc mấy giờ, scale-down lúc nào và có hiện tượng Flapping hay không:
+*   **Xem lịch sử sự kiện co giãn của HPA:**
     ```bash
     kubectl describe hpa backend-hpa > stress-tests/k8s-hpa-events.txt
+    ```
+*   **Đọc log Pod bị treo sập trước đó (OOMKilled):**
+    ```bash
+    kubectl logs -l app=backend --previous --tail=2000 > stress-tests/k8s-backend-crash.log
     ```
