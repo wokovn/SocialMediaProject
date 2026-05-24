@@ -17,16 +17,11 @@ const IMAGE_EXTENSIONS = new Set([
   '.jpeg',
   '.png',
   '.webp',
-  '.gif',
-  '.avif',
 ]);
 
 const VIDEO_EXTENSIONS = new Set([
   '.mp4',
-  '.mov',
   '.webm',
-  '.mkv',
-  '.m4v',
 ]);
 
 const TMP_TTL_MINUTES = Number(process.env.MEDIA_TMP_TTL_MINUTES) || 180;
@@ -117,12 +112,8 @@ const extensionFromMimeType = (mimeType = '', mediaType = null) => {
     'image/jpeg': '.jpg',
     'image/png': '.png',
     'image/webp': '.webp',
-    'image/gif': '.gif',
-    'image/avif': '.avif',
     'video/mp4': '.mp4',
     'video/webm': '.webm',
-    'video/quicktime': '.mov',
-    'video/x-matroska': '.mkv',
   };
 
   if (extensionMap[mime]) {
@@ -440,6 +431,15 @@ const MediaService = {
     const mediaType = inferMediaType(mimeInferredType, originalName || '');
     if (!mediaType) {
       throw new Error('Only image and video uploads are supported.');
+    }
+
+    // Strict validation to only allow very common formats
+    const uploadExt = path.posix.extname(originalName || '').toLowerCase();
+    const isAllowedImage = IMAGE_EXTENSIONS.has(uploadExt) || ['image/jpeg', 'image/png', 'image/webp'].includes(mimeType?.toLowerCase());
+    const isAllowedVideo = VIDEO_EXTENSIONS.has(uploadExt) || ['video/mp4', 'video/webm'].includes(mimeType?.toLowerCase());
+
+    if (!isAllowedImage && !isAllowedVideo) {
+      throw new Error('Only very common image formats (.jpg, .jpeg, .png, .webp) and video formats (.mp4, .webm) are allowed.');
     }
 
     const sourceName =

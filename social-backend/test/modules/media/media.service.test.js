@@ -95,6 +95,52 @@ describe('MediaService', () => {
                 })
             ).rejects.toThrow('Only image and video uploads are supported.');
         });
+
+        it('throws when media format is not very common (e.g. .avif or .mov)', async () => {
+            await expect(
+                MediaService.uploadTempMedia({
+                    userId: 'user1',
+                    fileBuffer: Buffer.from('data'),
+                    originalName: 'image.avif',
+                    mimeType: 'image/avif',
+                    fileSize: 4,
+                })
+            ).rejects.toThrow('Only very common image formats (.jpg, .jpeg, .png, .webp) and video formats (.mp4, .webm) are allowed.');
+
+            await expect(
+                MediaService.uploadTempMedia({
+                    userId: 'user1',
+                    fileBuffer: Buffer.from('data'),
+                    originalName: 'movie.mov',
+                    mimeType: 'video/quicktime',
+                    fileSize: 4,
+                })
+            ).rejects.toThrow('Only very common image formats (.jpg, .jpeg, .png, .webp) and video formats (.mp4, .webm) are allowed.');
+        });
+
+        it('allows uploading very common media formats (e.g. .jpg, .webp, .mp4)', async () => {
+            storageService.getPublicUrl.mockReturnValue('https://cdn/tmp/photo.jpg');
+            const resultJpg = await MediaService.uploadTempMedia({
+                userId: 'user1',
+                fileBuffer: Buffer.from('data'),
+                originalName: 'photo.jpg',
+                mimeType: 'image/jpeg',
+                fileSize: 4,
+            });
+            expect(resultJpg.url).toBe('https://cdn/tmp/photo.jpg');
+            expect(resultJpg.mediaType).toBe('image');
+
+            storageService.getPublicUrl.mockReturnValue('https://cdn/tmp/video.mp4');
+            const resultMp4 = await MediaService.uploadTempMedia({
+                userId: 'user1',
+                fileBuffer: Buffer.from('data'),
+                originalName: 'video.mp4',
+                mimeType: 'video/mp4',
+                fileSize: 4,
+            });
+            expect(resultMp4.url).toBe('https://cdn/tmp/video.mp4');
+            expect(resultMp4.mediaType).toBe('video');
+        });
     });
 
     describe('finalizeProfilePicture', () => {

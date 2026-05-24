@@ -35,15 +35,32 @@ class ApiClient {
         throw new Error('Unauthorized')
       }
 
-      const data = await response.json()
+      let data = null
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        console.error('[ApiClient] JSON parsing failed:', parseError)
+      }
 
       if (!response.ok) {
-        throw new Error(data.message || 'Request failed')
+        if (response.status >= 500) {
+          throw new Error('Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.')
+        }
+        throw new Error(data?.message || data?.error || 'Yêu cầu không thành công.')
       }
 
       return { data, error: null }
     } catch (error) {
-      return { data: null, error: error.message }
+      console.error('[ApiClient] Request error details:', error)
+      
+      // Generic secure fallback message for low-level or technical failures
+      const genericMsg = 'Đã xảy ra sự cố kết nối. Vui lòng thử lại sau.'
+      
+      // If it is already a masked friendly message or an explicit validation message, keep it
+      const isFriendly = error.message && 
+                         !/fetch|network|failed to|unexpected|token|parse|json|undefined|null|object|cors/i.test(error.message)
+      
+      return { data: null, error: isFriendly ? error.message : genericMsg }
     }
   }
 

@@ -4,6 +4,86 @@ import { getEmitter } from '../../websocket/emitter.js';
 import RedisKeys from '../../redis/redis.key.js';
 
 export const notificationProcessor = async (job) => {
+  if (job.name === 'FLUSH_NOTIFICATIONS') {
+    if (!redisClient) {
+      return { success: true, processed: 0 };
+    }
+
+    const BATCH_SIZE = 100;
+    
+    // 1. Pop atomically up to BATCH_SIZE items from the buffer using a multi transaction
+    const pipeline = redisClient.multi();
+    pipeline.lrange('notification_buffer', 0, BATCH_SIZE - 1);
+    pipeline.ltrim('notification_buffer', BATCH_SIZE, -1);
+
+    const pipelineResults = await pipeline.exec();
+    const rawNotis = pipelineResults[0][1]; // Array of stringified JSON objects
+
+    if (!rawNotis || rawNotis.length === 0) {
+      return { success: true, processed: 0 };
+    }
+
+    const notiObjects = rawNotis.map(item => JSON.parse(item));
+
+    // 2. Fetch actor info in parallel (denormalization for all unique actors in the batch)
+    const uniqueActorIds = [...new Set(notiObjects.map(n => n.actor_id))];
+    const { data: actors } = await supabaseService
+      .from('users')
+      .select('id, full_name, avatar')
+      .in('id', uniqueActorIds);
+
+    const actorMap = new Map(actors?.map(a => [a.id, a]) || []);
+
+    const enrichedNotis = notiObjects.map(noti => {
+      const actor = actorMap.get(noti.actor_id);
+      return {
+        user_id: noti.user_id,
+        actor_id: noti.actor_id,
+        type: noti.type,
+        action: noti.action,
+        group_key: noti.group_key,
+        target_url: noti.target_url,
+        metadata: {
+          ...noti.metadata,
+          actor_name: actor?.full_name || 'Người dùng',
+          actor_avatar: actor?.avatar || null,
+        }
+      };
+    });
+
+    // 3. BULK INSERT all notifications in a SINGLE query!
+    const { data: insertedNotis, error } = await supabaseService
+      .from('notifications')
+      .insert(enrichedNotis)
+      .select();
+
+    if (error) {
+      throw new Error(`Failed to batch insert notifications: ${error.message}`);
+    }
+
+    // 4. Emit WebSockets and update unread counters in parallel
+    const emitter = getEmitter();
+    const updatePromises = insertedNotis.map(async (noti) => {
+      const userId = noti.user_id;
+      // Increment unread count in Redis
+      await redisClient.incr(RedisKeys.notifUnread(userId));
+
+      // Check online status
+      const isOnline = await redisClient.exists(RedisKeys.userOnline(userId));
+      if (isOnline) {
+        // Emit socket realtime events
+        emitter.to(`user:${userId}`).emit('NEW_NOTIFICATION', noti);
+        const count = await redisClient.get(RedisKeys.notifUnread(userId));
+        emitter.to(`user:${userId}`).emit('UNREAD_COUNT', { count: parseInt(count || '0', 10) });
+      }
+    });
+
+    await Promise.allSettled(updatePromises);
+
+    return { success: true, processed: insertedNotis.length };
+  }
+
+  // FALLBACK: Process individual 'dispatch' jobs (e.g. from tests or fallback path)
   const { user_id, actor_id, type, action, group_key, target_url, metadata } = job.data;
 
   // 1. Fetch actor info for denormalization

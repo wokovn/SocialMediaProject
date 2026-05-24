@@ -1,4 +1,5 @@
 import { notificationQueue } from '../../infra/queue/notification.queue.js';
+import redisClient from '../../infra/redis/redis.config.js';
 
 /**
  * Dispatch a notification to the queue to be processed in the background
@@ -22,25 +23,44 @@ export async function dispatchNotification({
 }) {
   try {
     if (userId === actorId) return; // Don't self-notify
+    
+    const groupKey = `${type}:${action}:${targetId}`;
+    const payload = {
+      user_id: userId,
+      actor_id: actorId,
+      type,
+      action,
+      group_key: groupKey,
+      target_url: targetUrl,
+      metadata,
+    };
+
+    // If Redis is enabled and we are not in a test environment, push to notification_buffer
+    if (redisClient && process.env.NODE_ENV !== 'test') {
+      try {
+        // 1. Deduplication window of 3 seconds to avoid double-clicking or rapid action spam
+        const dedupeKey = `notif:dedupe:${userId}:${actorId}:${type}:${action}:${targetId}`;
+        const isDuplicate = await redisClient.exists(dedupeKey);
+        if (isDuplicate) return;
+        await redisClient.set(dedupeKey, '1', 'EX', 3);
+
+        // 2. Push to Redis Buffer list
+        await redisClient.rpush('notification_buffer', JSON.stringify(payload));
+        return;
+      } catch (err) {
+        console.warn('[NotificationService] Redis buffer failed, falling back to direct queue:', err.message);
+      }
+    }
+
     if (!notificationQueue) {
       console.warn('[NotificationService] notificationQueue is not available');
       return;
     }
 
-    const groupKey = `${type}:${action}:${targetId}`;
-    
-    // Add job to BullMQ queue
+    // Fallback: Add individual job to BullMQ queue (useful for tests or degraded mode)
     await notificationQueue.add(
       'dispatch',
-      {
-        user_id: userId,
-        actor_id: actorId,
-        type,
-        action,
-        group_key: groupKey,
-        target_url: targetUrl,
-        metadata,
-      },
+      payload,
       {
         removeOnComplete: true,
         removeOnFail: false,
@@ -52,3 +72,4 @@ export async function dispatchNotification({
     console.error('[NotificationService] Error dispatching notification:', error);
   }
 }
+

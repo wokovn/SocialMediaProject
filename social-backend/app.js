@@ -16,6 +16,23 @@ const app = express();
 
 // Middleware
 app.use(cors());
+
+// Global error response interceptor to prevent sensitive 500 error leaks to the client
+app.use((req, res, next) => {
+  const originalJson = res.json;
+  res.json = function (body) {
+    if (res.statusCode >= 500 && process.env.NODE_ENV !== 'test') {
+      const genericMsg = 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.';
+      if (body && typeof body === 'object') {
+        if (body.message) body.message = genericMsg;
+        if (body.error) body.error = genericMsg;
+      }
+    }
+    return originalJson.call(this, body);
+  };
+  next();
+});
+
 app.use(traceMiddleware);
 app.use(pinoHttp({
   logger,
