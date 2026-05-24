@@ -6,6 +6,7 @@ data:
   # ── APP ──
   PORT: "3000"
   NODE_ENV: "development"
+  DOCKER_CONTAINER: "true"
 
   # ── SUPABASE ──
   SUPABASE_URL: "http://host.minikube.internal:54321"

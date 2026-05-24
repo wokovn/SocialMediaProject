@@ -24,14 +24,14 @@ data:
   REDIS_HOST: "redis"
   REDIS_PORT: "6379"
 
-  # ── RATE LIMITING ──
-  RATE_LIMIT_ENABLED: "true"
-  RATE_LIMIT_WINDOW_MS: "300000"       # 5 phút cho API chung
-  RATE_LIMIT_MAX: "300"                # Tối đa 300 requests / 5 phút
-  RATE_LIMIT_AUTH_WINDOW_MS: "900000"  # 15 phút cho Auth
-  RATE_LIMIT_AUTH_MAX: "15"            # Tối đa 15 requests / 15 phút
-  RATE_LIMIT_MEDIA_WINDOW_MS: "900000" # 15 phút cho Media
-  RATE_LIMIT_MEDIA_MAX: "20"           # Tối đa 20 uploads / 15 phút
+  # ── RATE LIMITING TẮT CHO STRESS TEST ──
+  RATE_LIMIT_ENABLED: "false"
+  RATE_LIMIT_WINDOW_MS: "300000"
+  RATE_LIMIT_MAX: "999999"
+  RATE_LIMIT_AUTH_WINDOW_MS: "900000"
+  RATE_LIMIT_AUTH_MAX: "999999"
+  RATE_LIMIT_MEDIA_WINDOW_MS: "900000"
+  RATE_LIMIT_MEDIA_MAX: "999999"
 
   # ── FEED & RANKING ──
   RANKING_TIME_DECAY_FACTOR: "1.8"
@@ -83,5 +83,4 @@ metadata:
 data:
   VITE_SUPABASE_URL: "http://host.minikube.internal:54321"
   VITE_SUPABASE_ANON_KEY: "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
-  # VITE_BACKEND_URL không cần nữa — Nginx reverse proxy /api/ và /socket.io/
   VITE_PRESENCE_HEARTBEAT_INTERVAL: "30"

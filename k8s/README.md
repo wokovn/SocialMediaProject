@@ -267,6 +267,37 @@ kubectl top pods
 
 ---
 
+## Quản lý và Xuất Logs (Sau khi Stress Test)
+
+Hệ thống backend sử dụng **Pino Logger** để ghi log. Trong cụm Kubernetes (Dev & Prod), log của toàn bộ Pods được xuất dưới dạng cấu trúc **Raw JSON** ra `stdout` nhằm tránh mất mát dữ liệu khi HPA tự động co giãn pods (khi scale down sẽ xóa pod, dẫn đến mất file ghi cục bộ).
+
+### 1. Kéo toàn bộ logs về máy thật Windows
+Để xuất toàn bộ logs của các pod backend về một file JSON duy nhất trên máy host sau khi stress test xong:
+
+```powershell
+# Tạo thư mục lưu logs tại máy thật (chạy từ thư mục gốc của project)
+mkdir -p logs
+
+# Kéo logs từ tất cả các backend pods (tải toàn bộ từ đầu đến hiện tại)
+kubectl logs -l app=backend --all-containers=true --tail=-1 > logs/stress-test-results.json
+```
+
+### 2. Các mẹo phân tích file log JSON thu được
+File `logs/stress-test-results.json` chứa cấu trúc log chi tiết bao gồm `traceId` để truy vết hành trình của request và các siêu dữ liệu (metadata) khác.
+
+- **Tìm tất cả logs liên quan đến 1 request (qua traceId):**
+  ```powershell
+  # Trên Windows PowerShell
+  Select-String -Path .\logs\stress-test-results.json -Pattern "traceId-cụ-thể-của-bạn"
+  ```
+- **Lọc toàn bộ log lỗi hệ thống (level >= 50 trong Pino đại diện cho Error/Fatal):**
+  ```powershell
+  # Lọc nhanh các dòng bị lỗi hệ thống
+  Select-String -Path .\logs\stress-test-results.json -Pattern '"level":50'
+  ```
+
+---
+
 ## Xoá toàn bộ
 
 
