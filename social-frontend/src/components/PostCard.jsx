@@ -12,11 +12,11 @@ import {
   BookmarkIcon as BookmarkSolidIcon,
   HeartIcon as HeartSolidIcon,
 } from '@heroicons/react/24/solid'
-import postsService from '../services/postsService'
 import CommentSection from './CommentSection'
 import Modal from './Modal'
 import RichTextEditor from './RichTextEditor'
 import VideoPlayer from './VideoPlayer'
+import { usePostCard } from '../hooks/usePostCard'
 
 const htmlTagRegex = /<\/?[a-z][\s\S]*>/i
 
@@ -82,8 +82,6 @@ const getImageSources = (item) => {
   }
 }
 
-import { usePostCard } from '../hooks/usePostCard'
-
 function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared, isModal = false }) {
   const {
     isLiked,
@@ -146,164 +144,202 @@ function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared
     }
   }
 
-
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
-      {/* Author Info */}
-      <div className="flex items-center mb-4">
-        {authorProfilePath ? (
-          <Link
-            to={authorProfilePath}
-            className="inline-flex items-center min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          >
-            {post.author?.avatar ? (
-              <img
-                src={post.author.avatar}
-                alt={`${post.author?.fullName || post.author?.username || 'User'} avatar`}
-                className="w-10 h-10 rounded-full object-cover border border-gray-200"
-              />
-            ) : (
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                {post.author?.fullName?.[0]?.toUpperCase() || post.author?.username?.[0]?.toUpperCase() || 'U'}
-              </div>
-            )}
-            <div className="ml-3 min-w-0">
-              <h4 className="font-semibold text-gray-900 truncate hover:text-blue-700 transition">
-                {post.author?.fullName || post.author?.username || 'Unknown User'}
-              </h4>
-              <p className="text-sm text-gray-500 truncate">
-                {post.author?.username && `@${post.author.username} • `}
-                {formatDate(post.createdAt)}
-              </p>
+    <div className="bg-black border-b border-[#2f3336] p-4 sm:p-5 hover:bg-[#16181c]/40 transition duration-200">
+      <div className="flex gap-3">
+        {/* Left Column: Avatar */}
+        <div className="flex-shrink-0">
+          {authorProfilePath ? (
+            <Link to={authorProfilePath} className="block group">
+              {post.author?.avatar ? (
+                <img
+                  src={post.author.avatar}
+                  alt={`${post.author?.fullName || post.author?.username || 'User'} avatar`}
+                  className="w-10 h-10 rounded-full object-cover border border-[#2f3336] group-hover:opacity-90 transition"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-[#1d9bf0] to-[#8ecdf8] rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  {(post.author?.fullName?.[0] || post.author?.username?.[0] || 'U').toUpperCase()}
+                </div>
+              )}
+            </Link>
+          ) : (
+            <div>
+              {post.author?.avatar ? (
+                <img
+                  src={post.author.avatar}
+                  alt="Author avatar"
+                  className="w-10 h-10 rounded-full object-cover border border-[#2f3336]"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-[#1d9bf0] to-[#8ecdf8] rounded-full flex items-center justify-center text-white font-bold text-sm">
+                  {(post.author?.fullName?.[0] || post.author?.username?.[0] || 'U').toUpperCase()}
+                </div>
+              )}
             </div>
-          </Link>
-        ) : (
-          <>
-            {post.author?.avatar ? (
-              <img
-                src={post.author.avatar}
-                alt="Author avatar"
-                className="w-10 h-10 rounded-full object-cover border border-gray-200"
-              />
-            ) : (
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
-                {post.author?.fullName?.[0]?.toUpperCase() || post.author?.username?.[0]?.toUpperCase() || 'U'}
-              </div>
-            )}
-            <div className="ml-3 min-w-0">
-              <h4 className="font-semibold text-gray-900 truncate">
-                {post.author?.fullName || post.author?.username || 'Unknown User'}
-              </h4>
-              <p className="text-sm text-gray-500 truncate">
-                {post.author?.username && `@${post.author.username} • `}
-                {formatDate(post.createdAt)}
-              </p>
-            </div>
-          </>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {post.visibility !== 'public' && (
-            <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded-full">
-              {post.visibility}
-            </span>
-          )}
-          {isOwner && (
-            <button
-              onClick={handleDelete}
-              disabled={deleting}
-              className="inline-flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-red-500 disabled:opacity-40 transition"
-            >
-              <TrashIcon className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{deleting ? 'Deleting…' : 'Delete'}</span>
-            </button>
           )}
         </div>
-      </div>
 
-      {/* Post Content */}
-      <div
-        className={`mb-4 text-gray-800 break-words post-rich-content ${!isExpanded && isLongContent ? 'line-clamp-4 overflow-hidden' : ''}`}
-        dangerouslySetInnerHTML={{ __html: safeHtml }}
-      />
-      {isLongContent && (
-        <button 
-          onClick={() => setIsExpanded(!isExpanded)} 
-          className="text-blue-500 hover:text-blue-700 text-sm font-medium mb-4 -mt-3 block"
-        >
-          {isExpanded ? 'Show less' : 'Show more...'}
-        </button>
-      )}
+        {/* Right Column: Post Body */}
+        <div className="flex-1 min-w-0">
+          {/* Header Row */}
+          <div className="flex items-center justify-between mb-1.5 flex-wrap gap-x-2">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+              {authorProfilePath ? (
+                <Link to={authorProfilePath} className="font-bold text-white hover:underline truncate">
+                  {post.author?.fullName || post.author?.username || 'Unknown User'}
+                </Link>
+              ) : (
+                <span className="font-bold text-white truncate">
+                  {post.author?.fullName || post.author?.username || 'Unknown User'}
+                </span>
+              )}
+              {post.author?.username && (
+                <span className="text-sm text-[#71767b] truncate">@{post.author.username}</span>
+              )}
+              <span className="text-sm text-[#71767b]">•</span>
+              <span className="text-sm text-[#71767b] hover:underline" title={new Date(post.createdAt).toLocaleString()}>
+                {formatDate(post.createdAt)}
+              </span>
+            </div>
 
-      {sharedPost && (
-        <div 
-          className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 cursor-pointer hover:bg-gray-100 transition"
-          onClick={() => setOriginalPostModalOpen(true)}
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Shared post</p>
-          <div className="mt-2 flex items-center gap-2">
-            {sharedPost.author?.avatar ? (
-              <img
-                src={sharedPost.author.avatar}
-                alt={`${sharedPost.author?.fullName || sharedPost.author?.username || 'User'} avatar`}
-                className="w-8 h-8 rounded-full object-cover border border-gray-200"
-              />
-            ) : (
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
-                {sharedPost.author?.fullName?.[0]?.toUpperCase() || sharedPost.author?.username?.[0]?.toUpperCase() || 'U'}
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">
-                {sharedPost.author?.fullName || sharedPost.author?.username || 'Unknown User'}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                {sharedPost.author?.username && `@${sharedPost.author.username} • `}
-                {formatDate(sharedPost.createdAt)}
-              </p>
+            <div className="flex items-center gap-2">
+              {post.visibility !== 'public' && (
+                <span className="px-2 py-0.5 text-[10px] font-black uppercase tracking-wider bg-[#1d9bf0]/10 text-[#1d9bf0] rounded-full border border-[#1d9bf0]/20">
+                  {post.visibility}
+                </span>
+              )}
+              {isOwner && (
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="p-1.5 rounded-full hover:bg-red-500/10 text-[#71767b] hover:text-[#f4212e] disabled:opacity-40 transition"
+                  title="Delete post"
+                >
+                  <TrashIcon className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
             </div>
           </div>
 
+          {/* Text Content */}
           <div
-            className={`mt-2 text-gray-800 break-words post-rich-content ${!isSharedExpanded && isSharedLongContent ? 'line-clamp-3 overflow-hidden' : ''}`}
-            dangerouslySetInnerHTML={{ __html: sharedPostHtml }}
+            className={`text-[15px] leading-relaxed text-[#e7e9ea] break-words post-rich-content ${!isExpanded && isLongContent ? 'line-clamp-4 overflow-hidden' : ''}`}
+            dangerouslySetInnerHTML={{ __html: safeHtml }}
           />
-          {isSharedLongContent && (
+          {isLongContent && (
             <button 
-              onClick={(e) => {
-                e.stopPropagation()
-                setIsSharedExpanded(!isSharedExpanded)
-              }} 
-              className="text-blue-500 hover:text-blue-700 text-sm font-medium mt-1 block"
+              onClick={() => setIsExpanded(!isExpanded)} 
+              className="text-[#1d9bf0] hover:underline text-sm font-medium mt-1 mb-2 block"
             >
-              {isSharedExpanded ? 'Show less' : 'Show more...'}
+              {isExpanded ? 'Show less' : 'Show more'}
             </button>
           )}
 
-          {sharedMediaItems.length > 0 && (
-            <div className={`mt-3 grid gap-2 ${sharedMediaItems.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
-              {sharedMediaItems.map((item, index) => (
-                <div
-                  key={item.id || `${sharedPost.id}-${index}`}
-                  className="overflow-hidden rounded-lg border border-gray-200 bg-white"
+          {/* Shared Post (Retweet) Block */}
+          {sharedPost && (
+            <div 
+              className="mt-3 rounded-2xl border border-[#2f3336] bg-black p-3.5 hover:bg-[#16181c]/30 transition cursor-pointer"
+              onClick={() => setOriginalPostModalOpen(true)}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {sharedPost.author?.avatar ? (
+                  <img
+                    src={sharedPost.author.avatar}
+                    alt={`${sharedPost.author?.fullName || sharedPost.author?.username || 'User'} avatar`}
+                    className="w-5 h-5 rounded-full object-cover border border-[#2f3336]"
+                  />
+                ) : (
+                  <div className="w-5 h-5 bg-gradient-to-br from-[#1d9bf0] to-[#8ecdf8] rounded-full flex items-center justify-center text-white text-[9px] font-bold">
+                    {(sharedPost.author?.fullName?.[0] || sharedPost.author?.username?.[0] || 'U').toUpperCase()}
+                  </div>
+                )}
+                <span className="text-sm font-bold text-white truncate">
+                  {sharedPost.author?.fullName || sharedPost.author?.username}
+                </span>
+                {sharedPost.author?.username && (
+                  <span className="text-xs text-[#71767b] truncate">@{sharedPost.author.username}</span>
+                )}
+                <span className="text-xs text-[#71767b]">•</span>
+                <span className="text-xs text-[#71767b]">{formatDate(sharedPost.createdAt)}</span>
+              </div>
+
+              <div
+                className={`text-sm leading-relaxed text-[#e7e9ea] break-words post-rich-content ${!isSharedExpanded && isSharedLongContent ? 'line-clamp-3 overflow-hidden' : ''}`}
+                dangerouslySetInnerHTML={{ __html: sharedPostHtml }}
+              />
+              {isSharedLongContent && (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsSharedExpanded(!isSharedExpanded)
+                  }} 
+                  className="text-[#1d9bf0] hover:underline text-xs font-medium mt-1 block"
                 >
+                  {isSharedExpanded ? 'Show less' : 'Show more'}
+                </button>
+              )}
+
+              {sharedMediaItems.length > 0 && (
+                <div className={`mt-3 grid gap-2 overflow-hidden rounded-2xl border border-[#2f3336] ${sharedMediaItems.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {sharedMediaItems.map((item, index) => (
+                    <div key={item.id || `${sharedPost.id}-${index}`} className="relative bg-black">
+                      {item.mediaType === 'video' ? (
+                        <VideoPlayer
+                          src={item.url}
+                          poster={item.thumbnailUrl || undefined}
+                          className="w-full aspect-video bg-black"
+                        />
+                      ) : (
+                        (() => {
+                          const imageSources = getImageSources(item)
+                          return (
+                            <img
+                              src={imageSources.src}
+                              srcSet={imageSources.srcSet}
+                              sizes={sharedMediaItems.length > 1 ? '(max-width: 640px) 100vw, 50vw' : '100vw'}
+                              alt={item.altText || 'Shared post media'}
+                              loading="lazy"
+                              className="w-full max-h-72 object-cover"
+                            />
+                          )
+                        })()
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {sharedPostUnavailable && (
+            <div className="mt-3 rounded-2xl border border-[#2f3336] bg-[#16181c]/20 px-4 py-3 text-sm text-[#71767b] italic">
+              Original post is unavailable.
+            </div>
+          )}
+
+          {/* Media Items Block */}
+          {mediaItems.length > 0 && (
+            <div className={`mt-3 grid gap-2 overflow-hidden rounded-2xl border border-[#2f3336] ${mediaItems.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              {mediaItems.map((item, index) => (
+                <div key={item.id || `${post.id}-${index}`} className="relative bg-black">
                   {item.mediaType === 'video' ? (
                     <VideoPlayer
                       src={item.url}
                       poster={item.thumbnailUrl || undefined}
-                      className="w-full aspect-auto max-h-[450px] min-h-[150px] bg-black rounded-md"
+                      className="w-full aspect-video bg-black"
                     />
                   ) : (
                     (() => {
                       const imageSources = getImageSources(item)
-
                       return (
                         <img
                           src={imageSources.src}
                           srcSet={imageSources.srcSet}
-                          sizes={sharedMediaItems.length > 1 ? '(max-width: 640px) 100vw, 50vw' : '100vw'}
-                          alt={item.altText || 'Shared post media'}
+                          sizes={mediaItems.length > 1 ? '(max-width: 640px) 100vw, 50vw' : '100vw'}
+                          alt={item.altText || 'Post media'}
                           loading="lazy"
-                          className="w-full max-h-72 object-cover"
+                          className="w-full max-h-[500px] object-cover mx-auto"
                         />
                       )
                     })()
@@ -312,126 +348,94 @@ function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared
               ))}
             </div>
           )}
-        </div>
-      )}
 
-      {sharedPostUnavailable && (
-        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500">
-          Original post is unavailable.
-        </div>
-      )}
-
-      {mediaItems.length > 0 && (
-        <div className={`mb-4 grid gap-3 ${mediaItems.length > 1 ? 'sm:grid-cols-2' : 'grid-cols-1'}`}>
-          {mediaItems.map((item, index) => (
-            <div
-              key={item.id || `${post.id}-${index}`}
-              className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+          {/* Interaction Bar */}
+          <div className="flex items-center justify-between mt-4 max-w-md text-[#71767b]">
+            {/* Like Button */}
+            <button
+              onClick={handleLike}
+              aria-label={isLiked ? 'Unlike post' : 'Like post'}
+              className={`flex items-center gap-2 transition group text-sm ${isLiked ? 'text-[#f4212e]' : 'hover:text-[#f4212e]'}`}
             >
-              {item.mediaType === 'video' ? (
-              <VideoPlayer
-                src={item.url}
-                poster={item.thumbnailUrl || undefined}
-                className="w-full aspect-auto max-h-[600px] min-h-[200px] bg-black rounded-lg"
+              <div className={`p-2 rounded-full ${isLiked ? '' : 'group-hover:bg-[#f4212e]/10'}`}>
+                {isLiked ? (
+                  <HeartSolidIcon className="w-[18px] h-[18px] text-[#f4212e] transform scale-110 transition-transform" />
+                ) : (
+                  <HeartOutlineIcon className="w-[18px] h-[18px]" />
+                )}
+              </div>
+              <span className="font-semibold">{likesCount}</span>
+            </button>
+
+            {/* Comment Button */}
+            <button
+              onClick={() => setShowComments((v) => !v)}
+              aria-label={showComments ? 'Hide comments' : 'Show comments'}
+              className="flex items-center gap-2 hover:text-[#1d9bf0] transition group text-sm"
+            >
+              <div className="p-2 rounded-full group-hover:bg-[#1d9bf0]/10">
+                <ChatBubbleOvalLeftIcon className="w-[18px] h-[18px]" />
+              </div>
+              <span className="font-semibold">{commentsCount}</span>
+            </button>
+
+
+            {/* Bookmark Button */}
+            <button
+              onClick={handleBookmark}
+              disabled={bookmarkLoading}
+              aria-label={isBookmarked ? 'Remove from saved posts' : 'Save post'}
+              className={`flex items-center gap-2 transition group text-sm disabled:opacity-50 ${isBookmarked ? 'text-[#e6af2e]' : 'hover:text-[#e6af2e]'}`}
+            >
+              <div className="p-2 rounded-full group-hover:bg-[#e6af2e]/10">
+                {isBookmarked ? (
+                  <BookmarkSolidIcon className="w-[18px] h-[18px] text-[#e6af2e]" />
+                ) : (
+                  <BookmarkOutlineIcon className="w-[18px] h-[18px]" />
+                )}
+              </div>
+            </button>
+
+            {/* Retweet/Share Button */}
+            <button
+              onClick={openShareModal}
+              disabled={shareSubmitting}
+              aria-label="Share post"
+              className="flex items-center gap-2 hover:text-[#00ba7c] transition group text-sm disabled:opacity-50"
+            >
+              <div className="p-2 rounded-full group-hover:bg-[#00ba7c]/10">
+                <ShareIcon className="w-[18px] h-[18px]" />
+              </div>
+              <span className="font-semibold">{sharesCount}</span>
+            </button>
+          </div>
+
+          {/* Comments Section Drawer */}
+          {showComments && (
+            <div className="mt-4 border-t border-[#2f3336] pt-4">
+              <CommentSection
+                postId={post.id}
+                currentUser={currentUser}
+                onCommentCountChange={(delta) => setCommentsCount((prev) => Math.max(0, prev + delta))}
+                onClose={() => setShowComments(false)}
               />
-              ) : (
-                (() => {
-                  const imageSources = getImageSources(item)
-
-                  return (
-                    <img
-                      src={imageSources.src}
-                      srcSet={imageSources.srcSet}
-                      sizes={mediaItems.length > 1 ? '(max-width: 640px) 100vw, 50vw' : '100vw'}
-                      alt={item.altText || 'Post media'}
-                      loading="lazy"
-                      className="w-full max-h-96 object-cover"
-                    />
-                  )
-                })()
-              )}
             </div>
-          ))}
+          )}
         </div>
-      )}
-
-      {/* Post Stats & Actions */}
-      <div className="flex items-center gap-6 pt-4 border-t border-gray-100">
-        <button
-          onClick={handleLike}
-          aria-label={isLiked ? 'Unlike post' : 'Like post'}
-          className={`flex items-center gap-2 transition ${
-            isLiked ? 'text-red-600' : 'text-gray-500 hover:text-red-600'
-          }`}
-        >
-          {isLiked ? (
-            <HeartSolidIcon className="w-5 h-5" aria-hidden="true" />
-          ) : (
-            <HeartOutlineIcon className="w-5 h-5" aria-hidden="true" />
-          )}
-          <span className="text-sm font-medium">{likesCount}</span>
-        </button>
-
-        <button
-          onClick={() => setShowComments((v) => !v)}
-          aria-label={showComments ? 'Hide comments' : 'Show comments'}
-          className={`flex items-center gap-2 transition ${
-            showComments ? 'text-green-600' : 'text-gray-500 hover:text-green-600'
-          }`}
-        >
-          <ChatBubbleOvalLeftIcon className="w-5 h-5" aria-hidden="true" />
-          <span className="text-sm font-medium">{commentsCount}</span>
-        </button>
-
-        <button
-          onClick={handleBookmark}
-          disabled={bookmarkLoading}
-          aria-label={isBookmarked ? 'Remove from saved posts' : 'Save post'}
-          className={`flex items-center gap-2 transition disabled:opacity-50 ${
-            isBookmarked
-              ? 'text-amber-600'
-              : 'text-gray-500 hover:text-amber-600'
-          }`}
-        >
-          {isBookmarked ? (
-            <BookmarkSolidIcon className="w-5 h-5" aria-hidden="true" />
-          ) : (
-            <BookmarkOutlineIcon className="w-5 h-5" aria-hidden="true" />
-          )}
-        </button>
-
-        <button
-          onClick={openShareModal}
-          disabled={shareSubmitting}
-          aria-label="Share post"
-          className="flex items-center gap-2 text-gray-500 hover:text-purple-600 transition disabled:opacity-50"
-        >
-          <ShareIcon className="w-5 h-5" aria-hidden="true" />
-          <span className="text-sm font-medium">{sharesCount}</span>
-        </button>
       </div>
 
-      {showComments && (
-        <CommentSection
-          postId={post.id}
-          currentUser={currentUser}
-          onCommentCountChange={(delta) => setCommentsCount((prev) => Math.max(0, prev + delta))}
-          onClose={() => setShowComments(false)}
-        />
-      )}
-
+      {/* Share/Retweet Dialog Modal */}
       <Modal
         isOpen={shareModalOpen}
-        title="Share post"
+        title="Share Post"
         onClose={closeShareModal}
-        panelClassName="max-w-2xl"
         actions={(
           <>
             <button
               type="button"
               onClick={closeShareModal}
               disabled={shareSubmitting}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+              className="rounded-full border border-[#2f3336] px-4 py-2 text-sm font-bold text-[#e7e9ea] hover:bg-[#16181c]"
             >
               Cancel
             </button>
@@ -439,42 +443,41 @@ function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared
               type="button"
               onClick={submitShare}
               disabled={shareSubmitting}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-full bg-[#1d9bf0] px-4 py-2 text-sm font-bold text-white hover:bg-[#1a8cd8]"
             >
               {shareSubmitting ? 'Sharing...' : 'Share'}
             </button>
           </>
         )}
       >
-        <p className="mb-2 text-sm text-gray-600">Add your thoughts (optional).</p>
-        <RichTextEditor
-          value={shareContent}
-          onChange={setShareContent}
-          placeholder="Say something about this post..."
-          disabled={shareSubmitting}
-        />
-        
-        {/* Post Preview inside Share Modal */}
-        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            {post.author?.avatar ? (
-              <img src={post.author.avatar} alt="Author" className="w-6 h-6 rounded-full object-cover" />
-            ) : (
-              <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-[10px] font-semibold">
-                {post.author?.fullName?.[0]?.toUpperCase() || post.author?.username?.[0]?.toUpperCase() || 'U'}
-              </div>
-            )}
-            <span className="text-sm font-semibold text-gray-900">{post.author?.fullName || post.author?.username}</span>
+        <div className="space-y-4">
+          <p className="text-sm text-[#71767b]">Add your thoughts (optional):</p>
+          <RichTextEditor
+            value={shareContent}
+            onChange={setShareContent}
+            placeholder="Say something about this post..."
+            disabled={shareSubmitting}
+          />
+          
+          {/* Post Preview inside Modal */}
+          <div className="rounded-2xl border border-[#2f3336] p-4 bg-[#16181c]/30">
+            <div className="flex items-center gap-2 mb-2">
+              {post.author?.avatar ? (
+                <img src={post.author.avatar} alt="Author" className="w-5 h-5 rounded-full object-cover" />
+              ) : (
+                <div className="w-5 h-5 bg-gradient-to-br from-[#1d9bf0] to-[#8ecdf8] rounded-full flex items-center justify-center text-white text-[9px] font-bold">
+                  {(post.author?.fullName?.[0] || post.author?.username?.[0] || 'U').toUpperCase()}
+                </div>
+              )}
+              <span className="text-sm font-bold text-white">{post.author?.fullName || post.author?.username}</span>
+            </div>
+            <div className="text-sm text-[#e7e9ea] line-clamp-3 post-rich-content" dangerouslySetInnerHTML={{ __html: safeHtml }} />
           </div>
-          <div className="text-sm text-gray-700 line-clamp-3 post-rich-content" dangerouslySetInnerHTML={{ __html: safeHtml }} />
-          {mediaItems.length > 0 && (
-            <p className="mt-2 text-xs text-gray-500 font-medium">Includes {mediaItems.length} media item(s)</p>
+
+          {shareError && (
+            <p className="text-sm text-[#f4212e]">{shareError}</p>
           )}
         </div>
-
-        {shareError && (
-          <p className="mt-2 text-sm text-red-600">{shareError}</p>
-        )}
       </Modal>
 
       {/* Original Post Modal */}
@@ -483,9 +486,8 @@ function PostCard({ post, currentUser, onDeleted, onBookmarkChange, onPostShared
           isOpen={originalPostModalOpen}
           title="Original Post"
           onClose={() => setOriginalPostModalOpen(false)}
-          panelClassName="max-w-2xl"
         >
-          <div className="-mx-4 sm:-mx-6 -my-4">
+          <div className="-mx-4 -my-3 sm:-mx-6 bg-black">
             <PostCard
               post={sharedPost}
               currentUser={currentUser}

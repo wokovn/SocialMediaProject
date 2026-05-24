@@ -5,6 +5,11 @@ const normalizeEnvValue = (value = '') => {
   return typeof value === 'string' ? value.trim() : '';
 };
 
+// SUPABASE_PUBLIC_URL: URL mà browser dùng để truy cập storage (có thể khác SUPABASE_URL
+// khi chạy trong Docker — backend kết nối qua host.docker.internal, browser dùng localhost)
+const SUPABASE_INTERNAL_URL = normalizeEnvValue(process.env.SUPABASE_URL);
+const SUPABASE_PUBLIC_URL = normalizeEnvValue(process.env.SUPABASE_PUBLIC_URL) || SUPABASE_INTERNAL_URL;
+
 const normalizePrefix = (value = '') => {
   return normalizeEnvValue(value)
     .replace(/\\/g, '/')
@@ -327,12 +332,18 @@ const getPublicUrl = ({ bucket, path }) => {
 
   const client = getStorageClient();
   const result = client.storage.from(normalizedBucket).getPublicUrl(normalizedPath);
-  return (
+  let publicUrl =
     result?.data?.publicUrl ||
     result?.data?.publicURL ||
     result?.publicURL ||
-    null
-  );
+    null;
+
+  // Rewrite internal hostname to public hostname so browser can load the URL
+  if (publicUrl && SUPABASE_PUBLIC_URL && SUPABASE_INTERNAL_URL && SUPABASE_PUBLIC_URL !== SUPABASE_INTERNAL_URL) {
+    publicUrl = publicUrl.replace(SUPABASE_INTERNAL_URL, SUPABASE_PUBLIC_URL);
+  }
+
+  return publicUrl;
 };
 
 const readDownloadedObjectAsBuffer = async (downloadedData) => {

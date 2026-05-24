@@ -10,6 +10,10 @@ vi.mock('../../../modules/db/db.js', () => ({
     from: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue([]),
+    update: vi.fn().mockReturnThis(),
+    set: vi.fn().mockReturnThis(),
+    innerJoin: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
   },
 }));
 
@@ -24,12 +28,34 @@ vi.mock('../../../modules/notifications/notifications.service.js', () => ({
   dispatchNotification: vi.fn(),
 }));
 
-vi.mock('drizzle-orm', () => ({
-  and: vi.fn(),
-  eq: vi.fn(),
-  isNull: vi.fn(),
-  sql: vi.fn(),
-}));
+vi.mock('drizzle-orm', () => {
+  const mockSqlFn = Object.assign(
+    vi.fn(() => ''),
+    {
+      join: vi.fn(),
+    }
+  );
+  return {
+    and: vi.fn(),
+    eq: vi.fn(),
+    ilike: vi.fn(),
+    isNull: vi.fn(),
+    or: vi.fn(),
+    sql: mockSqlFn,
+  };
+});
+
+vi.mock('drizzle-orm/sql', () => {
+  const mockSqlFn = Object.assign(
+    vi.fn(() => ''),
+    {
+      join: vi.fn(),
+    }
+  );
+  return {
+    sql: mockSqlFn,
+  };
+});
 
 describe('UsersService', () => {
   beforeEach(() => {
@@ -127,5 +153,87 @@ describe('UsersService', () => {
     expect(result.stats.followersCount).toBe(2);
 
     profileSpy.mockRestore();
+  });
+
+  // --- NEW UNIT TESTS FOR OPTIMIZED INFONITE SCROLL AND PROFILE FEATURES ---
+
+  it('updates own profile info successfully', async () => {
+    const profileSpy = vi.spyOn(UsersService, 'getProfileById').mockResolvedValue({
+      id: 'u1',
+      fullName: 'New Display Name',
+      bio: 'New biography description',
+      website: 'mywebsite.org',
+      showEmail: true,
+      isSelf: true,
+    });
+
+    const result = await UsersService.updateProfile({
+      userId: 'u1',
+      fullName: 'New Display Name',
+      bio: 'New biography description',
+      website: 'mywebsite.org',
+      showEmail: true,
+    });
+
+    expect(result.fullName).toBe('New Display Name');
+    expect(result.bio).toBe('New biography description');
+    expect(result.website).toBe('mywebsite.org');
+    expect(result.showEmail).toBe(true);
+
+    profileSpy.mockRestore();
+  });
+
+  it('updates own cover banner successfully', async () => {
+    const profileSpy = vi.spyOn(UsersService, 'getProfileById').mockResolvedValue({
+      id: 'u1',
+      banner: 'https://supabase.local/media/banner.jpg',
+      isSelf: true,
+    });
+
+    const result = await UsersService.updateBanner({
+      userId: 'u1',
+      bannerUrl: 'https://supabase.local/media/banner.jpg',
+    });
+
+    expect(result.banner).toBe('https://supabase.local/media/banner.jpg');
+    profileSpy.mockRestore();
+  });
+
+  it('retrieves followers list of a user', async () => {
+    const mockFollowers = [
+      { id: 'f1', username: 'follower1', fullName: 'Follower One', followedAt: '2026-05-24T00:00:00Z' },
+      { id: 'f2', username: 'follower2', fullName: 'Follower Two', followedAt: '2026-05-23T00:00:00Z' }
+    ];
+    db.limit.mockResolvedValueOnce(mockFollowers);
+
+    const followers = await UsersService.getFollowers({ targetUserId: 'u1', limit: 20 });
+    expect(followers.length).toBe(2);
+    expect(followers[0].username).toBe('follower1');
+  });
+
+  it('retrieves following list of a user', async () => {
+    const mockFollowing = [
+      { id: 'g1', username: 'following1', fullName: 'Following One', followedAt: '2026-05-24T00:00:00Z' }
+    ];
+    db.limit.mockResolvedValueOnce(mockFollowing);
+
+    const following = await UsersService.getFollowing({ targetUserId: 'u1', limit: 20 });
+    expect(following.length).toBe(1);
+    expect(following[0].username).toBe('following1');
+  });
+
+  it('performs full-text search and returns users and posts', async () => {
+    const mockUsers = [{ id: 's1', username: 'search_user', fullName: 'Search Result' }];
+    // Set limit mock for users
+    db.limit.mockResolvedValueOnce(mockUsers);
+
+    const results = await UsersService.search({
+      query: 'search',
+      filter: 'users',
+      limit: 10,
+    });
+
+    expect(results.users.length).toBe(1);
+    expect(results.users[0].username).toBe('search_user');
   });
 });

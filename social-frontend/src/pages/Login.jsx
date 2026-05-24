@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import authService from '../services/authService'
+import logoSvg from '../assets/logo/icon-white.svg'
 
 function Login() {
   const navigate = useNavigate()
@@ -41,27 +42,32 @@ function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Sign In</h1>
-          <p className="text-gray-600 mt-2">Welcome back</p>
+    <div className="min-h-screen bg-black text-[#e7e9ea] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-[450px] space-y-8 flex flex-col items-center">
+        {/* Brand Logo */}
+        <div className="w-16 h-16 flex items-center justify-center">
+          <img src={logoSvg} alt="ArkNet Logo" className="h-16 w-16 object-contain rounded-xl" />
+        </div>
+
+        <div className="text-center">
+          <h1 className="text-3xl font-black font-display text-white tracking-tight">Sign in to ArkNet</h1>
         </div>
 
         {message.text && (
-          <div className={`mb-4 p-3 rounded text-sm ${
+          <div className={`w-full p-4 rounded-2xl text-sm ${
             message.type === 'success' 
-              ? 'bg-green-50 text-green-800 border border-green-200' 
-              : 'bg-red-50 text-red-800 border border-red-200'
+              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+              : 'bg-red-500/10 text-red-400 border border-red-500/20'
           }`}>
             {message.text}
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+        <form onSubmit={handleLogin} className="w-full space-y-5">
           <div className="space-y-4">
-            <div>
-              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
+            {/* Input Email/Username */}
+            <div className="relative border border-[#2f3336] rounded-lg px-3 py-2 focus-within:border-[#1d9bf0] transition focus-within:ring-1 focus-within:ring-[#1d9bf0]">
+              <label htmlFor="identifier" className="block text-xs text-[#71767b] font-semibold">
                 Email or Username
               </label>
               <input
@@ -70,14 +76,15 @@ function Login() {
                 name="identifier"
                 value={formData.identifier}
                 onChange={handleChange}
-                placeholder="you@example.com or username"
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                placeholder="Phone, email, or username"
+                className="w-full bg-transparent border-none text-white text-base outline-none pt-1 placeholder-[#71767b]"
                 required
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            {/* Input Password */}
+            <div className="relative border border-[#2f3336] rounded-lg px-3 py-2 focus-within:border-[#1d9bf0] transition focus-within:ring-1 focus-within:ring-[#1d9bf0]">
+              <label htmlFor="password" className="block text-xs text-[#71767b] font-semibold">
                 Password
               </label>
               <input
@@ -86,41 +93,42 @@ function Login() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                placeholder="••••••••"
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                placeholder="Password"
+                className="w-full bg-transparent border-none text-white text-base outline-none pt-1 placeholder-[#71767b]"
                 required
               />
-              <div className="mt-2 text-right">
-                <button
-                  type="button"
-                  onClick={() => navigate('/forgot-password')}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Forgot password?
-                </button>
-              </div>
             </div>
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Signing In...' : 'Sign In'}
-            </button>
-
-            <p className="text-center text-sm text-gray-600 mt-4">
-              Don't have an account?{' '}
-              <button
-                type="button"
-                onClick={() => navigate('/signup')}
-                className="text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Sign Up
-              </button>
-            </p>
           </div>
+
+          <div className="text-right">
+            <button
+              type="button"
+              onClick={() => navigate('/forgot-password')}
+              className="text-sm text-[#1d9bf0] hover:underline font-bold"
+            >
+              Forgot password?
+            </button>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-white hover:bg-[#e6e6e6] text-black font-bold py-3 px-4 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed font-display text-sm tracking-wide shadow-md"
+          >
+            {loading ? 'Signing In...' : 'Log in'}
+          </button>
         </form>
+
+        <div className="w-full text-center text-sm text-[#71767b] pt-4">
+          Don't have an account?{' '}
+          <button
+            type="button"
+            onClick={() => navigate('/signup')}
+            className="text-[#1d9bf0] hover:underline font-bold ml-1"
+          >
+            Sign up
+          </button>
+        </div>
       </div>
     </div>
   )

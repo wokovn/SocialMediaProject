@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import authService from '../services/authService'
+import logoSvg from '../assets/logo/icon-white.svg'
 
 const hasRecoveryParamsInHash = () => {
   const rawHash = window.location.hash.startsWith('#')
@@ -108,34 +109,38 @@ function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Reset Password</h1>
-          <p className="text-gray-600 mt-2">Choose a new password for your account</p>
+    <div className="min-h-screen bg-black text-[#e7e9ea] flex items-center justify-center px-4 py-12">
+      <div className="w-full max-w-[450px] space-y-8 flex flex-col items-center">
+        {/* Brand Logo */}
+        <div className="w-16 h-16 flex items-center justify-center">
+          <img src={logoSvg} alt="ArkNet Logo" className="h-16 w-16 object-contain rounded-xl" />
+        </div>
+
+        <div className="text-center">
+          <h1 className="text-3xl font-black font-display text-white tracking-tight">Reset your password</h1>
+          <p className="text-sm text-[#71767b] mt-2">Choose a strong, secure new password.</p>
         </div>
 
         {message.text && (
-          <div
-            className={`mb-4 p-3 rounded text-sm ${
-              message.type === 'success'
-                ? 'bg-green-50 text-green-800 border border-green-200'
-                : 'bg-red-50 text-red-800 border border-red-200'
-            }`}
-          >
+          <div className={`w-full p-4 rounded-2xl text-sm ${
+            message.type === 'success'
+              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+              : 'bg-red-500/10 text-red-400 border border-red-500/20'
+          }`}>
             {message.text}
           </div>
         )}
 
         {checkingLink ? (
-          <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 text-center text-gray-600">
+          <div className="w-full text-center text-[#71767b] py-6">
             Validating reset link...
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+          <form onSubmit={handleSubmit} className="w-full space-y-5">
             <div className="space-y-4">
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              {/* Input New Password */}
+              <div className="relative border border-[#2f3336] rounded-lg px-3 py-2 focus-within:border-[#1d9bf0] transition focus-within:ring-1 focus-within:ring-[#1d9bf0]">
+                <label htmlFor="password" className="block text-xs text-[#71767b] font-semibold">
                   New Password
                 </label>
                 <input
@@ -145,16 +150,17 @@ function ResetPassword() {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full bg-transparent border-none text-white text-base outline-none pt-1 placeholder-[#71767b]"
                   minLength={6}
                   required
                   disabled={!canReset || loading}
                 />
               </div>
 
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirm New Password
+              {/* Confirm Password */}
+              <div className="relative border border-[#2f3336] rounded-lg px-3 py-2 focus-within:border-[#1d9bf0] transition focus-within:ring-1 focus-within:ring-[#1d9bf0]">
+                <label htmlFor="confirmPassword" className="block text-xs text-[#71767b] font-semibold">
+                  Confirm Password
                 </label>
                 <input
                   type="password"
@@ -163,34 +169,34 @@ function ResetPassword() {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  className="w-full bg-transparent border-none text-white text-base outline-none pt-1 placeholder-[#71767b]"
                   minLength={6}
                   required
                   disabled={!canReset || loading}
                 />
               </div>
-
-              <button
-                type="submit"
-                disabled={!canReset || loading}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? 'Updating...' : 'Update Password'}
-              </button>
-
-              <p className="text-center text-sm text-gray-600 mt-4">
-                Back to{' '}
-                <button
-                  type="button"
-                  onClick={() => navigate('/login')}
-                  className="text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Sign In
-                </button>
-              </p>
             </div>
+
+            <button
+              type="submit"
+              disabled={!canReset || loading}
+              className="w-full bg-white hover:bg-[#e6e6e6] text-black font-bold py-3 px-4 rounded-full transition disabled:opacity-50 disabled:cursor-not-allowed font-display text-sm tracking-wide shadow-md"
+            >
+              {loading ? 'Updating...' : 'Update Password'}
+            </button>
           </form>
         )}
+
+        <div className="w-full text-center text-sm text-[#71767b] pt-4">
+          Back to{' '}
+          <button
+            type="button"
+            onClick={() => navigate('/login')}
+            className="text-[#1d9bf0] hover:underline font-bold ml-1"
+          >
+            Log in
+          </button>
+        </div>
       </div>
     </div>
   )

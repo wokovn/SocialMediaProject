@@ -17,7 +17,7 @@ export default function PostDetailModal() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const user = await authService.getCurrentUser();
+        const { user } = await authService.getCurrentUser();
         setCurrentUser(user);
       } catch (err) {
         console.error('Failed to get user', err);
@@ -32,9 +32,7 @@ export default function PostDetailModal() {
         setLoading(true);
         setError(null);
         try {
-          // You might need a method to get a single post, check if postsService has it
           const res = await postsService.getPostById(postId);
-          // Assuming res.data contains the post
           setPost(res.data);
         } catch (err) {
           console.error(err);
@@ -63,10 +61,10 @@ export default function PostDetailModal() {
       onClose={handleClose}
       panelClassName="max-w-3xl"
     >
-      <div className="max-h-[80vh] overflow-y-auto -mx-6 -my-4 p-6">
+      <div className="max-h-[80vh] overflow-y-auto -mx-6 -my-4 p-6 scrollbar-thin">
         {loading ? (
           <div className="flex justify-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1d9bf0]"></div>
           </div>
         ) : error ? (
           <div className="text-red-500 text-center p-8">{error}</div>

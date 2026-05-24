@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { NotificationService } from '../services/notificationService';
 import { useSocket } from '../lib/socketProvider';
+import { supabase } from '../lib/supabase';
 
-export const useNotifications = () => {
+const NotificationContext = createContext();
+
+export const NotificationProvider = ({ children }) => {
   const { socket } = useSocket();
   const [notifications, setNotifications] = useState([]);
   const [groupedNotifications, setGroupedNotifications] = useState([]);
@@ -80,7 +83,6 @@ export const useNotifications = () => {
     
     if (!notifsError && notifsData?.data) {
       setNotifications(prev => {
-        // filter out duplicates just in case
         const existingIds = new Set(prev.map(n => n.id));
         const newItems = notifsData.data.filter(n => !existingIds.has(n.id));
         return [...prev, ...newItems];
@@ -92,7 +94,37 @@ export const useNotifications = () => {
   }, [hasMore, fetchingMore, nextCursor]);
 
   useEffect(() => {
-    fetchNotifications();
+    let active = true;
+
+    // Check if session exists initially
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (active) {
+        if (session) {
+          fetchNotifications();
+        } else {
+          setLoading(false);
+        }
+      }
+    });
+
+    // Listen to changes in auth state
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (active) {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          fetchNotifications();
+        } else if (event === 'SIGNED_OUT') {
+          setNotifications([]);
+          setGroupedNotifications([]);
+          setUnreadCount(0);
+          setLoading(false);
+        }
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, [fetchNotifications]);
 
   useEffect(() => {
@@ -152,17 +184,29 @@ export const useNotifications = () => {
     }
   };
 
-  return {
-    notifications: groupedNotifications,
-    rawNotifications: notifications,
-    unreadCount,
-    loading,
-    fetchingMore,
-    hasMore,
-    markAsRead,
-    markGroupAsRead,
-    markAllAsRead,
-    fetchNotifications,
-    fetchMoreNotifications,
-  };
+  return (
+    <NotificationContext.Provider value={{
+      notifications: groupedNotifications,
+      rawNotifications: notifications,
+      unreadCount,
+      loading,
+      fetchingMore,
+      hasMore,
+      markAsRead,
+      markGroupAsRead,
+      markAllAsRead,
+      fetchNotifications,
+      fetchMoreNotifications,
+    }}>
+      {children}
+    </NotificationContext.Provider>
+  );
+};
+
+export const useNotifications = () => {
+  const context = useContext(NotificationContext);
+  if (!context) {
+    throw new Error('useNotifications must be used within a NotificationProvider');
+  }
+  return context;
 };

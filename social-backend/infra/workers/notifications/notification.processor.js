@@ -9,14 +9,14 @@ export const notificationProcessor = async (job) => {
   // 1. Fetch actor info for denormalization
   const { data: actor } = await supabaseService
     .from('users')
-    .select('full_name, avatar_url')
+    .select('full_name, avatar')
     .eq('id', actor_id)
     .single();
 
   const enrichedMetadata = {
     ...metadata,
     actor_name: actor?.full_name || 'Người dùng',
-    actor_avatar: actor?.avatar_url || null,
+    actor_avatar: actor?.avatar || null,
   };
 
   // 2. Lưu thông báo vào Database (PostgreSQL)

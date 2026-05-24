@@ -1,12 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  ArrowLeftIcon,
-  BookmarkIcon,
-} from '@heroicons/react/24/outline'
 import authService from '../services/authService'
 import postsService from '../services/postsService'
 import Feed from '../components/Feed'
+import TwitterLayout from '../components/TwitterLayout'
 
 function SavedPosts() {
   const navigate = useNavigate()
@@ -16,7 +13,8 @@ function SavedPosts() {
   const [posts, setPosts] = useState([])
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState(null)
-  const limit = 20
+  const cursorRef = useRef(null)
+  const limit = 10
 
   useEffect(() => {
     checkUser()
@@ -40,25 +38,37 @@ function SavedPosts() {
     setLoading(false)
   }
 
-  const loadSavedPosts = async (isLoadMore = false) => {
+  const loadSavedPosts = useCallback(async (isLoadMore = false) => {
     setFeedLoading(true)
-    const currentCursor = isLoadMore ? cursor : null
+    const currentCursor = isLoadMore ? cursorRef.current : null
 
     const { data, error } = await postsService.getSavedPosts(limit, currentCursor)
     if (!error && data) {
-      setPosts((prev) => (isLoadMore ? [...prev, ...data] : data))
-      setHasMore(data.length === limit)
+      if (isLoadMore) {
+        setPosts((prev) => {
+          const newPosts = data.filter(d => !prev.some(p => p.id === d.id))
+          setHasMore(newPosts.length > 0 && data.length === limit)
+          return newPosts.length > 0 ? [...prev, ...newPosts] : prev
+        })
+      } else {
+        setPosts(data)
+        setHasMore(data.length === limit)
+        cursorRef.current = null
+      }
       if (data.length > 0) {
-        setCursor(data[data.length - 1].savedAt)
+        const newCursor = data[data.length - 1].savedAt
+        setCursor(newCursor)
+        cursorRef.current = newCursor
       }
     }
 
     setFeedLoading(false)
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     loadSavedPosts(true)
-  }
+  }, [loadSavedPosts])
 
   const handlePostDeleted = (postId) => {
     setPosts((prev) => prev.filter((post) => post.id !== postId))
@@ -74,37 +84,33 @@ function SavedPosts() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading saved posts...</div>
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1d9bf0]"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <button
-              type="button"
-              onClick={() => navigate('/home')}
-              className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-            >
-              <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
-              Back to Feed
-            </button>
-
-            <div className="inline-flex items-center gap-2 text-gray-900">
-              <BookmarkIcon className="h-5 w-5" aria-hidden="true" />
-              <h1 className="text-lg font-semibold">Saved Posts</h1>
-            </div>
-
-            <div className="w-24" />
-          </div>
+    <>
+      {/* Header */}
+      <div className="sticky top-0 bg-black/80 backdrop-blur-md z-10 border-b border-[#2f3336] px-4 py-3 flex items-center gap-6">
+        <button
+          onClick={() => navigate('/home')}
+          className="p-2 rounded-full hover:bg-[#16181c] text-white transition"
+          aria-label="Back"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current text-white">
+            <path d="M7.414 13l5.013 5.01 1.414-1.41-6.013-6H21v-2H7.828l6.013-6-1.414-1.41L7.414 11H2v2h5.414z" />
+          </svg>
+        </button>
+        <div>
+          <h2 className="text-xl font-bold font-display text-white">Bookmarks</h2>
+          <p className="text-xs text-[#71767b]">{posts.length} {posts.length === 1 ? 'bookmark' : 'bookmarks'}</p>
         </div>
-      </nav>
+      </div>
 
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Bookmarked Feed */}
+      <div className="pb-12">
         <Feed
           posts={posts}
           loading={feedLoading}
@@ -113,11 +119,11 @@ function SavedPosts() {
           currentUser={user}
           onPostDeleted={handlePostDeleted}
           onPostBookmarkChange={handlePostBookmarkChange}
-          emptyTitle="No saved posts yet"
-          emptyDescription="Tap Save on a post in your feed to keep it here."
+          emptyTitle="Save posts for later"
+          emptyDescription="Don’t let the good ones fly away! Bookmark posts to easily find them again in the future."
         />
-      </main>
-    </div>
+      </div>
+    </>
   )
 }
 

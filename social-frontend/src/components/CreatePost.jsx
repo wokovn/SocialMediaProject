@@ -1,7 +1,5 @@
 import {
   GlobeAltIcon,
-  PaperAirplaneIcon,
-  PencilSquareIcon,
   PhotoIcon,
   VideoCameraIcon,
   XMarkIcon,
@@ -10,7 +8,18 @@ import RichTextEditor from './RichTextEditor'
 import VideoPlayer from './VideoPlayer'
 import { useCreatePost } from '../hooks/useCreatePost'
 
-function CreatePost({ onPostCreated }) {
+import { useState } from 'react'
+
+function CreatePost({ onPostCreated, isModal = false }) {
+  const [isExpanded, setIsExpanded] = useState(isModal)
+
+  const handlePostCreatedWrapper = async (postData) => {
+    await onPostCreated(postData)
+    if (!isModal) {
+      setIsExpanded(false)
+    }
+  }
+
   const {
     content,
     setContent,
@@ -25,106 +34,111 @@ function CreatePost({ onPostCreated }) {
     stripHtml,
     MAX_MEDIA_FILES,
     MAX_FILE_SIZE_MB
-  } = useCreatePost({ onPostCreated })
+  } = useCreatePost({ onPostCreated: handlePostCreatedWrapper })
 
+  const showControls = isModal || isExpanded || content.trim().length > 0 || selectedMedia.length > 0
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-      <h3 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900 mb-4">
-        <PencilSquareIcon className="w-5 h-5 text-blue-600" aria-hidden="true" />
-        <span>Create Post</span>
-      </h3>
-      
-      <form onSubmit={handleSubmit}>
-        <RichTextEditor
-          value={content}
-          onChange={setContent}
-          placeholder="What's on your mind? Try rich text formatting."
-          disabled={isSubmitting}
-        />
-
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer transition">
-            <input
-              type="file"
-              accept="image/*,video/*"
-              multiple
-              onChange={handleFileChange}
-              className="hidden"
-              disabled={isSubmitting}
-            />
-            <span className="inline-flex items-center gap-1">
-              <PhotoIcon className="w-4 h-4 text-gray-500" aria-hidden="true" />
-              <VideoCameraIcon className="w-4 h-4 text-gray-500" aria-hidden="true" />
-            </span>
-            <span>Add Photos or Videos</span>
-          </label>
-          <p className="text-xs text-gray-500">
-            Up to {MAX_MEDIA_FILES} files, {MAX_FILE_SIZE_MB}MB each
-          </p>
+    <div className="bg-black p-2">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Editor Area */}
+        <div 
+          onClick={() => setIsExpanded(true)}
+          onFocus={() => setIsExpanded(true)}
+          className="w-full text-white text-lg cursor-text"
+        >
+          <RichTextEditor
+            value={content}
+            onChange={setContent}
+            placeholder={isModal ? "What is happening?!" : "What is happening?!"}
+            disabled={isSubmitting}
+            hideToolbar={!showControls}
+            minHeightClass={showControls ? 'min-h-[120px]' : 'min-h-[44px]'}
+          />
         </div>
 
-        {selectedMedia.length > 0 && (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {selectedMedia.map((item) => (
-              <div key={item.id} className="relative border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                {item.file.type.startsWith('video/') ? (
-                  <VideoPlayer src={item.previewUrl} className="w-full aspect-auto max-h-[300px] min-h-[120px] bg-black" />
-                ) : (
-                  <img src={item.previewUrl} alt={item.file.name} className="w-full h-44 object-cover" />
-                )}
-                <button
-                  type="button"
-                  onClick={() => removeMedia(item.id)}
-                  disabled={isSubmitting}
-                  className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-white bg-black/70 rounded-md hover:bg-black/80 disabled:opacity-60"
-                >
-                  <XMarkIcon className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Remove</span>
-                </button>
-                <p className="px-3 py-2 text-xs text-gray-600 truncate">{item.file.name}</p>
+        {showControls && (
+          <>
+            {/* Media Previews */}
+            {selectedMedia.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-2 mt-2">
+                {selectedMedia.map((item) => (
+                  <div key={item.id} className="relative border border-[#2f3336] rounded-2xl overflow-hidden bg-[#16181c]">
+                    {item.file.type.startsWith('video/') ? (
+                      <VideoPlayer src={item.previewUrl} className="w-full aspect-video bg-black" />
+                    ) : (
+                      <img src={item.previewUrl} alt={item.file.name} className="w-full h-44 object-cover" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeMedia(item.id)}
+                      disabled={isSubmitting}
+                      className="absolute top-2 right-2 inline-flex items-center justify-center p-1.5 rounded-full bg-black/75 hover:bg-black/90 text-white transition"
+                    >
+                      <XMarkIcon className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                    <p className="px-3 py-2 text-xs text-[#71767b] truncate">{item.file.name}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+
+            {error && (
+              <div className="text-sm text-red-500 font-semibold mt-2">
+                {error}
+              </div>
+            )}
+
+            {/* Controls Row */}
+            <div className="flex items-center justify-between pt-3 border-t border-[#2f3336]">
+              <div className="flex items-center gap-4">
+                {/* Attachment inputs */}
+                <label className="inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-[#1d9bf0]/10 cursor-pointer text-[#1d9bf0] transition">
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={isSubmitting}
+                  />
+                  <PhotoIcon className="w-5 h-5" aria-hidden="true" />
+                </label>
+                
+                {/* Visibility selector */}
+                <div className="relative flex items-center gap-1.5 text-sm text-[#1d9bf0] hover:bg-[#1d9bf0]/10 px-3 py-1.5 rounded-full cursor-pointer transition">
+                  <GlobeAltIcon className="w-4 h-4" aria-hidden="true" />
+                  <select
+                    value={visibility}
+                    onChange={(e) => setVisibility(e.target.value)}
+                    className="bg-transparent text-[#1d9bf0] font-bold outline-none cursor-pointer text-xs pr-1 font-display uppercase tracking-wider"
+                    disabled={isSubmitting}
+                    aria-label="Post visibility"
+                  >
+                    <option value="public" className="bg-black text-[#e7e9ea]">Everyone</option>
+                    <option value="friends" className="bg-black text-[#e7e9ea]">Friends</option>
+                    <option value="private" className="bg-black text-[#e7e9ea]">Only Me</option>
+                  </select>
+                </div>
+                
+                <span className="hidden sm:inline text-xs text-[#71767b]">
+                  Max {MAX_MEDIA_FILES} files ({MAX_FILE_SIZE_MB}MB)
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  (stripHtml(content).length === 0 && selectedMedia.length === 0)
+                }
+                className="px-5 py-2 bg-[#1d9bf0] hover:bg-[#1a8cd8] text-white font-bold rounded-full text-sm disabled:opacity-50 disabled:cursor-not-allowed transition font-display"
+              >
+                {isSubmitting ? 'Posting...' : 'Post'}
+              </button>
+            </div>
+          </>
         )}
-
-        {error && (
-          <div className="mt-2 text-sm text-red-600">
-            {error}
-          </div>
-        )}
-
-        <div className="mt-4 flex items-center justify-between">
-          <div className="relative">
-            <GlobeAltIcon
-              className="pointer-events-none absolute left-3 top-1/2 w-4 h-4 -translate-y-1/2 text-gray-400"
-              aria-hidden="true"
-            />
-            <select
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value)}
-              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isSubmitting}
-              aria-label="Post visibility"
-            >
-              <option value="public">Public</option>
-              <option value="friends">Friends</option>
-              <option value="private">Private</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            disabled={
-              isSubmitting ||
-              (stripHtml(content).length === 0 && selectedMedia.length === 0)
-            }
-            className="inline-flex items-center gap-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-          >
-            <PaperAirplaneIcon className="w-4 h-4" aria-hidden="true" />
-            <span>{isSubmitting ? 'Posting...' : 'Post'}</span>
-          </button>
-        </div>
       </form>
     </div>
   )

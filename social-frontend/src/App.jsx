@@ -7,7 +7,10 @@ import SavedPosts from './pages/SavedPosts'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Admin from './pages/Admin'
+import Notifications from './pages/Notifications'
+import Search from './pages/Search'
 import PostDetailModal from './components/PostDetailModal'
+import TwitterLayout from './components/TwitterLayout'
 import './App.css'
 
 function App() {
@@ -20,12 +23,17 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/home" element={<Home />} />
-          <Route path="/saved" element={<SavedPosts />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/:userId" element={<Profile />} />
-          <Route path="/profile/u/:username" element={<Profile />} />
-          <Route path="/admin" element={<Admin />} />
+          
+          <Route element={<TwitterLayout />}>
+            <Route path="/home" element={<Home />} />
+            <Route path="/saved" element={<SavedPosts />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/:userId" element={<Profile />} />
+            <Route path="/profile/u/:username" element={<Profile />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/admin" element={<Admin />} />
+          </Route>
         </Routes>
         <PostDetailModal />
       </div>
@@ -34,3 +42,4 @@ function App() {
 }
 
 export default App
+

@@ -1,15 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  BookmarkIcon,
-  ChatBubbleLeftRightIcon,
-  UserCircleIcon,
-} from '@heroicons/react/24/outline'
 import authService from '../services/authService'
 import postsService from '../services/postsService'
 import CreatePost from '../components/CreatePost'
 import Feed from '../components/Feed'
-import NotificationBell from '../components/NotificationBell'
+import TwitterLayout from '../components/TwitterLayout'
 
 function Home() {
   const navigate = useNavigate()
@@ -19,7 +14,9 @@ function Home() {
   const [feedLoading, setFeedLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [cursor, setCursor] = useState(null)
-  const limit = 5
+  const cursorRef = useRef(null)
+  const [activeTab, setActiveTab] = useState('foryou') // 'foryou' (hybrid) or 'global' (public)
+  const limit = 10
 
   useEffect(() => {
     checkUser()
@@ -28,10 +25,32 @@ function Home() {
 
   useEffect(() => {
     if (user) {
-      loadFeed()
+      // Scroll to top and reset state when tab or user changes
+      window.scrollTo({ top: 0, behavior: 'instant' })
+      setPosts([])
+      setHasMore(false)
+      cursorRef.current = null
+      loadFeed(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user])
+  }, [user, activeTab])
+
+  useEffect(() => {
+    const handlePostCreatedEvent = (e) => {
+      const newPost = e.detail
+      if (newPost) {
+        setPosts((prev) => {
+          if (prev.some((p) => p.id === newPost.id)) return prev
+          return [newPost, ...prev]
+        })
+      }
+    }
+
+    window.addEventListener('post-created', handlePostCreatedEvent)
+    return () => {
+      window.removeEventListener('post-created', handlePostCreatedEvent)
+    }
+  }, [])
 
   async function checkUser() {
     const { user, error } = await authService.getCurrentUser()
@@ -45,12 +64,15 @@ function Home() {
     setLoading(false)
   }
 
-  async function loadFeed(isLoadMore = false) {
+  const loadFeed = useCallback(async (isLoadMore = false) => {
     setFeedLoading(true)
-    const currentCursor = isLoadMore ? cursor : null
+    const currentCursor = isLoadMore ? cursorRef.current : null
     
-    // Use hybrid feed for logged in users, public feed otherwise
-    const fetchFeed = user ? postsService.getHybridFeed(limit, currentCursor) : postsService.getPublicFeed(limit, currentCursor)
+    // Choose between hybrid feed and public feed
+    const fetchFeed = activeTab === 'foryou' 
+      ? postsService.getHybridFeed(limit, currentCursor) 
+      : postsService.getPublicFeed(limit, currentCursor)
+      
     const { data, error } = await fetchFeed
     
     if (!error && data) {
@@ -58,9 +80,7 @@ function Home() {
         setPosts((prev) => {
           const newPosts = data.filter(d => !prev.some(p => p.id === d.id))
           
-          // Prevent infinite looping if markSeen is lagging
           if (newPosts.length === 0 && data.length > 0) {
-            setTimeout(() => setHasMore(true), 1500)
             setHasMore(false)
             return prev
           }
@@ -73,12 +93,15 @@ function Home() {
         setHasMore(data.length === limit)
       }
       if (data.length > 0) {
-        setCursor(data[data.length - 1].createdAt)
+        const newCursor = data[data.length - 1].createdAt
+        setCursor(newCursor)
+        cursorRef.current = newCursor
       }
     }
     
     setFeedLoading(false)
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
 
   const handlePostCreated = async ({ content, visibility, files }) => {
     const { data, error } = await postsService.createPost({
@@ -89,9 +112,14 @@ function Home() {
     })
     
     if (!error && data) {
-      // Reload the feed to show the new post
-      setCursor(null)
-      await loadFeed(false)
+      // data = { message, postId, post } — extract the post object
+      const newPost = data.post || data
+      if (newPost?.id) {
+        setPosts((prev) => {
+          if (prev.some((p) => p.id === newPost.id)) return prev
+          return [newPost, ...prev]
+        })
+      }
     } else {
       throw new Error(error || 'Failed to create post')
     }
@@ -105,69 +133,71 @@ function Home() {
     if (!sharedPost?.id) {
       return
     }
-
     setPosts((prev) => [sharedPost, ...prev.filter((post) => post.id !== sharedPost.id)])
   }
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     loadFeed(true)
-  }
-
-  const handleSignOut = async () => {
-    await authService.signOut()
-    navigate('/login')
-  }
+  }, [loadFeed])
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#1d9bf0]"></div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <ChatBubbleLeftRightIcon className="w-8 h-8 text-blue-600" aria-hidden="true" />
-              <h1 className="text-xl font-bold text-gray-900">Social Feed</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <NotificationBell />
-              <span className="text-sm text-gray-600">
-                {user?.user_metadata?.full_name || user?.email}
-              </span>
-              <button
-                onClick={() => navigate('/saved')}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
-              >
-                <BookmarkIcon className="w-4 h-4" aria-hidden="true" />
-                Saved
-              </button>
-              <button
-                onClick={() => navigate('/profile')}
-                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
-              >
-                <UserCircleIcon className="w-4 h-4" aria-hidden="true" />
-                Profile
-              </button>
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
+    <>
+      {/* Home Header & Tabs */}
+      <div className="sticky top-0 bg-black/80 backdrop-blur-md z-10 border-b border-[#2f3336]">
+        <div className="px-4 py-3">
+          <h2 className="text-xl font-bold font-display text-white">Home</h2>
         </div>
-      </nav>
-
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <CreatePost onPostCreated={handlePostCreated} />
         
+        {/* Tab Selection */}
+        <div className="flex border-t border-[#2f3336] text-sm">
+          <button 
+            onClick={() => { 
+              if (activeTab !== 'foryou') {
+                setActiveTab('foryou')
+                setCursor(null)
+                cursorRef.current = null
+              }
+            }}
+            className="flex-1 py-4 text-center hover:bg-[#16181c] transition relative text-white font-bold"
+          >
+            <span className={activeTab === 'foryou' ? 'text-white' : 'text-[#71767b]'}>For you</span>
+            {activeTab === 'foryou' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-[#1d9bf0] rounded-full" />
+            )}
+          </button>
+          <button 
+            onClick={() => { 
+              if (activeTab !== 'global') {
+                setActiveTab('global')
+                setCursor(null)
+                cursorRef.current = null
+              }
+            }}
+            className="flex-1 py-4 text-center hover:bg-[#16181c] transition relative text-white font-bold"
+          >
+            <span className={activeTab === 'global' ? 'text-white' : 'text-[#71767b]'}>Global</span>
+            {activeTab === 'global' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-[#1d9bf0] rounded-full" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Main post editor */}
+      <div className="border-b border-[#2f3336] p-4">
+        <CreatePost onPostCreated={handlePostCreated} />
+      </div>
+
+      {/* Feed List */}
+      <div className="pb-12">
         <Feed 
           posts={posts} 
           loading={feedLoading}
@@ -177,8 +207,8 @@ function Home() {
           onPostDeleted={handlePostDeleted}
           onPostShared={handlePostShared}
         />
-      </main>
-    </div>
+      </div>
+    </>
   )
 }
 

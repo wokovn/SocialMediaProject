@@ -6,15 +6,18 @@ export default defineConfig({
   plugins: [react()],
   server: {
     allowedHosts: ['documents-break-queensland-plains.trycloudflare.com'],
+    watch: {
+      usePolling: true,
+    },
     // Proxy /api và /socket.io → backend khi chạy npm run dev (local)
     // Pattern giống hệt nginx.conf trong Docker/K8s
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.BACKEND_URL || 'http://localhost:3000',
         changeOrigin: true,
       },
       '/socket.io': {
-        target: 'http://localhost:3000',
+        target: process.env.BACKEND_URL || 'http://localhost:3000',
         ws: true,
       },
     },

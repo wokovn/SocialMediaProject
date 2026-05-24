@@ -1,3 +1,53 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #000000;
+    color: #e7e9ea;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2f3336;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3e4144;
+}
+
+/* Custom transitions and glassmorphism elements */
+.glass-panel {
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.x-border {
+  border-color: #2f3336;
+}
+
+.x-hover {
+  transition: background-color 0.2s ease;
+}
+.x-hover:hover {
+  background-color: rgba(231, 233, 234, 0.1);
+}
+
+/* Override standard button focus rings */
+button:focus-visible, a:focus-visible {
+  outline: 2px solid #1d9bf0;
+  outline-offset: 2px;
+}
