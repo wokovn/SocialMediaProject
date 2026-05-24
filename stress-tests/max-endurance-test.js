@@ -1,6 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { randomString, randomIntBetween } from 'https://jslib.k6.io/k6-utils/1.2.0/index.js';
+import { htmlReport } from 'https://raw.githubusercontent.com/benc-uk/k6-reporter/main/dist/bundle.js';
 
 // Cấu hình kịch bản Max Endurance (Stress) trong 30 Phút
 export const options = {
@@ -175,4 +176,10 @@ export default function (tokens) {
     }
 
     sleep(randomIntBetween(1, 2));
+}
+
+export function handleSummary(data) {
+    return {
+        "max-endurance-report.html": htmlReport(data),
+    };
 }
