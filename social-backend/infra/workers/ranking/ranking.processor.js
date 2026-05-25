@@ -1,5 +1,6 @@
 import redisClient from '../../redis/redis.config.js';
 import { supabase as supabaseService } from '../../../modules/auth/supabase.js';
+import RedisKeys from '../../redis/redis.key.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION (overridable via env)
@@ -99,16 +100,16 @@ async function fetchBootstrapData(postId) {
 
   // 2. Lấy dữ liệu real-time từ Redis để bù đắp cho buffer chưa sync
   // Chú ý: likes lưu dạng SET, comments lưu dạng SET (mới update) hoặc STRING (cũ)
-  const redisLikes = await redisClient.scard(`post:${postId}:likes`);
+  const redisLikes = await redisClient.scard(RedisKeys.postLikes(postId));
   
   // Tương thích ngược: thử SCARD, nếu lỗi thì thử GET (do comments cũ lưu STRING)
   let redisComments = 0;
   try {
-    const type = await redisClient.type(`post:${postId}:comments`);
+    const type = await redisClient.type(RedisKeys.postComments(postId));
     if (type === 'set') {
-      redisComments = await redisClient.scard(`post:${postId}:comments`);
+      redisComments = await redisClient.scard(RedisKeys.postComments(postId));
     } else {
-      const val = await redisClient.get(`post:${postId}:comments`);
+      const val = await redisClient.get(RedisKeys.postComments(postId));
       redisComments = Number(val || 0);
     }
   } catch (e) {
@@ -143,8 +144,8 @@ export const rankingProcessor = async (job) => {
 
   const interactionKey       = interactionType.toUpperCase();
   const weight               = WEIGHTS[interactionKey] ?? 1;
-  const totalInteractionsKey = `post:${postId}:interactions:total`;
-  const createdAtCacheKey    = `post:${postId}:created_at`;
+  const totalInteractionsKey = RedisKeys.postInteractionsTotal(postId);
+  const createdAtCacheKey    = RedisKeys.postCreatedAt(postId);
 
   // ── STEP 1: Resolve created_at & bootstrap score ──────────────────────────
   let createdAtStr = await redisClient.get(createdAtCacheKey);

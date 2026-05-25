@@ -24,11 +24,18 @@ const RedisKeys = {
   // post:<postId>            → STRING  – JSON snapshot của post (getPost)
   post:                (postId) => `post:${postId}`,
 
+  // post:cache:<postId>      → STRING  – JSON cached post data (cache-aside in feed)
+  //   TTL: POST_CACHE_TTL + jitter (default 300s + 0-60s)
+  postCache:           (postId) => `post:cache:${postId}`,
+
   // post:<postId>:likes      → SET     – userId đã like (SADD/SREM/SCARD/SISMEMBER)
   postLikes:           (postId) => `post:${postId}:likes`,
 
   // post:<postId>:comments   → STRING|SET – số comment (INCR cũ / SET mới)
   postComments:        (postId) => `post:${postId}:comments`,
+
+  // comment:<commentId>:replies → STRING – số reply (INCR)
+  commentReplies:      (commentId) => `comment:${commentId}:replies`,
 
   // ── Ranking Engine (per-post) ──────────────────────────────────────────────
   // Dùng bởi: ranking.processor.js, ranking.queue.js
@@ -55,6 +62,10 @@ const RedisKeys = {
   // user_feed:<userId>       → LIST  – postId của bài trong feed cá nhân
   //   Giới hạn bởi LTRIM MAX_FEED_SIZE
   userFeed:            (userId) => `user_feed:${userId}`,
+
+  // idol_posts:<userId>      → LIST  – postId của idol (pull model)
+  //   Giới hạn bởi LTRIM MAX_FEED_SIZE
+  idolPosts:           (userId) => `idol_posts:${userId}`,
 
   // user:seen:<userId>       → SET   – postId đã thấy (lọc trùng lặp feed)
   //   TTL: 7 ngày (604800s)
@@ -87,6 +98,14 @@ const RedisKeys = {
 
   // notif:unread:<userId> → STRING (number) - Số lượng thông báo chưa đọc
   notifUnread:         (userId) => `notif:unread:${userId}`,
+
+  // notif:dedupe:<userId>:<actorId>:<type>:<action>:<targetId> → STRING
+  //   TTL: 3 giây – chống double-click / rapid-action spam
+  notifDedupe:         ({ userId, actorId, type, action, targetId }) =>
+    `notif:dedupe:${userId}:${actorId}:${type}:${action}:${targetId}`,
+
+  // notification_buffer → LIST – pending notifications waiting for batch flush
+  NOTIFICATION_BUFFER: 'notification_buffer',
 };
 
 export default RedisKeys;

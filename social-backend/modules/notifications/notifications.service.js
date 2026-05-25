@@ -1,5 +1,6 @@
 import { notificationQueue } from '../../infra/queue/notification.queue.js';
 import redisClient from '../../infra/redis/redis.config.js';
+import RedisKeys from '../../infra/redis/redis.key.js';
 
 /**
  * Dispatch a notification to the queue to be processed in the background
@@ -39,13 +40,13 @@ export async function dispatchNotification({
     if (redisClient && process.env.NODE_ENV !== 'test') {
       try {
         // 1. Deduplication window of 3 seconds to avoid double-clicking or rapid action spam
-        const dedupeKey = `notif:dedupe:${userId}:${actorId}:${type}:${action}:${targetId}`;
+        const dedupeKey = RedisKeys.notifDedupe({ userId, actorId, type, action, targetId });
         const isDuplicate = await redisClient.exists(dedupeKey);
         if (isDuplicate) return;
         await redisClient.set(dedupeKey, '1', 'EX', 3);
 
         // 2. Push to Redis Buffer list
-        await redisClient.rpush('notification_buffer', JSON.stringify(payload));
+        await redisClient.rpush(RedisKeys.NOTIFICATION_BUFFER, JSON.stringify(payload));
         return;
       } catch (err) {
         console.warn('[NotificationService] Redis buffer failed, falling back to direct queue:', err.message);

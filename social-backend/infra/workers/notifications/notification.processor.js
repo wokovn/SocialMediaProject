@@ -13,8 +13,8 @@ export const notificationProcessor = async (job) => {
     
     // 1. Pop atomically up to BATCH_SIZE items from the buffer using a multi transaction
     const pipeline = redisClient.multi();
-    pipeline.lrange('notification_buffer', 0, BATCH_SIZE - 1);
-    pipeline.ltrim('notification_buffer', BATCH_SIZE, -1);
+    pipeline.lrange(RedisKeys.NOTIFICATION_BUFFER, 0, BATCH_SIZE - 1);
+    pipeline.ltrim(RedisKeys.NOTIFICATION_BUFFER, BATCH_SIZE, -1);
 
     const pipelineResults = await pipeline.exec();
     const rawNotis = pipelineResults[0][1]; // Array of stringified JSON objects

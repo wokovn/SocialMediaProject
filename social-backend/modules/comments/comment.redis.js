@@ -14,8 +14,8 @@ const commentRedis = {
         commentId, userId, postId, parentId, content,
         action: 'COMMENT_CREATE', timestamp: Date.now(),
       }));
-      pipeline.incr(`post:${postId}:comments`);
-      if (parentId) pipeline.incr(`comment:${parentId}:replies`);
+      pipeline.incr(RedisKeys.postComments(postId));
+      if (parentId) pipeline.incr(RedisKeys.commentReplies(parentId));
 
       const results = await pipeline.exec();
       return {

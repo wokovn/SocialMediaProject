@@ -1,4 +1,5 @@
 import redisClient from '../../../redis/redis.config.js';
+import RedisKeys from '../../../redis/redis.key.js';
 import db from '../../../../modules/db/db.js';
 import follows from '../../../../modules/db/schemas/follows.schema.js';
 import users from '../../../../modules/db/schemas/users.schema.js';
@@ -25,8 +26,8 @@ export const fanoutProcessor = async (job) => {
   // 2. Logic phân phối
   if (followersCount >= idolThreshold) {
     // PULL MODEL: User là Idol, chỉ lưu vào idol_posts
-    await redisClient.lpush(`idol_posts:${userId}`, postId);
-    await redisClient.ltrim(`idol_posts:${userId}`, 0, maxFeedSize - 1);
+    await redisClient.lpush(RedisKeys.idolPosts(userId), postId);
+    await redisClient.ltrim(RedisKeys.idolPosts(userId), 0, maxFeedSize - 1);
     
     // (Optional) Gửi notification cho fan cứng nếu muốn
   } else {
@@ -39,7 +40,7 @@ export const fanoutProcessor = async (job) => {
     if (followers.length > 0) {
       const pipeline = redisClient.pipeline();
       followers.forEach(f => {
-        const feedKey = `user_feed:${f.id}`;
+        const feedKey = RedisKeys.userFeed(f.id);
         pipeline.lpush(feedKey, postId);
         pipeline.ltrim(feedKey, 0, maxFeedSize - 1);
       });

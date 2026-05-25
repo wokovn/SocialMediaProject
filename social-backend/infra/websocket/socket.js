@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import redisClient from '../redis/redis.config.js';
+import RedisKeys from '../redis/redis.key.js';
 
 let io;
 
@@ -55,7 +56,7 @@ export const initializeWebsocket = (httpServer) => {
       if (userId) {
         try {
           if (redisClient) {
-            await redisClient.del(`user:online:${userId}`);
+            await redisClient.del(RedisKeys.userOnline(userId));
           }
         } catch (err) {
           console.warn('[Presence] Redis unavailable on disconnect:', err.message);
@@ -72,7 +73,7 @@ const updateOnlinePresence = async (userId) => {
   if (!redisClient) return; // Presence disabled without Redis
   try {
     const ttl = parseInt(process.env.PRESENCE_ONLINE_TTL || '60', 10);
-    const key = `user:online:${userId}`;
+    const key = RedisKeys.userOnline(userId);
     
     // Try to set the key only if it does not exist (NX)
     const result = await redisClient.set(key, '1', 'EX', ttl, 'NX');

@@ -30,8 +30,8 @@ const postsRedis = {
 
       const pipeline = redisService.pipeline();
       pipeline.rpush(RedisKeys.LIKE_BUFFER, JSON.stringify({ userId, postId, action: 'LIKE', timestamp: Date.now() }));
-      pipeline.sadd(`post:${postId}:likes`, userId);
-      pipeline.scard(`post:${postId}:likes`);
+      pipeline.sadd(RedisKeys.postLikes(postId), userId);
+      pipeline.scard(RedisKeys.postLikes(postId));
       const results = await pipeline.exec();
       addRankingJobWithThrottle(postId, 'LIKE').catch(err => console.error('[Ranking]', err));
       return { success: true, likeCount: results[2][1] };
@@ -50,8 +50,8 @@ const postsRedis = {
     try {
       const pipeline = redisService.pipeline();
       pipeline.rpush(RedisKeys.LIKE_BUFFER, JSON.stringify({ userId, postId, action: 'UNLIKE', timestamp: Date.now() }));
-      pipeline.srem(`post:${postId}:likes`, userId);
-      pipeline.scard(`post:${postId}:likes`);
+      pipeline.srem(RedisKeys.postLikes(postId), userId);
+      pipeline.scard(RedisKeys.postLikes(postId));
       const results = await pipeline.exec();
       addRankingJobWithThrottle(postId, 'UNLIKE').catch(err => console.error('[Ranking]', err));
       return { success: true, likeCount: results[2][1] };
@@ -67,7 +67,7 @@ const postsRedis = {
   // [FIX B1] Likes lưu dạng SET → dùng SCARD thay vì GET
   getLikeCount: async (postId) => {
     try {
-      const count = await redisService.scard(`post:${postId}:likes`);
+      const count = await redisService.scard(RedisKeys.postLikes(postId));
       return Number(count || 0);
     } catch (err) {
       console.warn('[Like] Redis unavailable for getLikeCount, reading from DB:', err.message);
@@ -78,7 +78,7 @@ const postsRedis = {
 
   getPost: async (postId) => {
     try {
-      const cached = await redisService.get(`post:${postId}`);
+      const cached = await redisService.get(RedisKeys.post(postId));
       return cached ? JSON.parse(cached) : null;
     } catch (err) {
       return null;

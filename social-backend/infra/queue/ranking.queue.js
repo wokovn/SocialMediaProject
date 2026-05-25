@@ -2,6 +2,7 @@ import { Queue } from 'bullmq';
 import { queueOptions } from './queue.config.js';
 import redisConnection from '../redis/redis.config.js';
 import QueueNames from './queue.names.js';
+import RedisKeys from '../redis/redis.key.js';
 
 // When Redis is disabled, redisConnection is null — BullMQ Queue will be inert.
 export const rankingQueue = redisConnection
@@ -51,7 +52,7 @@ export const addRankingJobWithThrottle = async (postId, interactionType) => {
     if (!redisConnection || !rankingQueue) return { added: false, reason: 'redis_disabled' };
     try {
         // ── STEP 1: Throttle check ──────────────────────────────────────────────
-        const lockKey = `lock:ranking:${postId}`;
+        const lockKey = RedisKeys.rankingLock(postId);
         const acquired = await redisConnection.set(lockKey, '1', 'NX', 'EX', THROTTLE_SECONDS);
 
         if (!acquired) {
@@ -63,7 +64,7 @@ export const addRankingJobWithThrottle = async (postId, interactionType) => {
         const weight = INTERACTION_WEIGHTS[interactionKey] ?? 1;
 
         // [BUG FIX] Key phải khớp với format trong ranking.processor.js: post:{postId}:interactions:total
-        const currentRaw = await redisConnection.get(`post:${postId}:interactions:total`);
+        const currentRaw = await redisConnection.get(RedisKeys.postInteractionsTotal(postId));
         const currentInteractions = currentRaw !== null ? Number(currentRaw) : 0;
 
         if (currentInteractions >= MIN_INTERACTIONS) {

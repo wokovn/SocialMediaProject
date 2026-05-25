@@ -82,7 +82,7 @@ export const postLikeSyncProcessor = async (job) => {
       // Sync accurate count from Redis cache to database
       for (const postId of postIdsToUpdateCount) {
          // Retrieve real-time count from Redis
-         const realCount = await redisConnection.scard(`post:${postId}:likes`); 
+         const realCount = await redisConnection.scard(RedisKeys.postLikes(postId)); 
          await tx.update(posts)
            .set({ likesCount: realCount })
            .where(eq(posts.id, postId));
