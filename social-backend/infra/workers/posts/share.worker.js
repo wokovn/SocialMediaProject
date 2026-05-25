@@ -33,8 +33,9 @@ const shareSyncProcessor = async () => {
   });
 
   try {
+    const sortedEntries = Array.from(shareCountByPostId.entries()).sort((a, b) => a[0].localeCompare(b[0]));
     await db.transaction(async (tx) => {
-      for (const [postId, incrementBy] of shareCountByPostId.entries()) {
+      for (const [postId, incrementBy] of sortedEntries) {
         await tx
           .update(posts)
           .set({ sharesCount: sql`${posts.sharesCount} + ${incrementBy}` })
