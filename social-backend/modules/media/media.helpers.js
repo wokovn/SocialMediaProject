@@ -59,6 +59,9 @@ export const sanitizeFileName = (name = '') =>
     .slice(0, 80);
 
 export const toIntegerOrNull = (value) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
   const parsed = Number(value);
   return Number.isInteger(parsed) ? parsed : null;
 };

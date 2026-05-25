@@ -112,7 +112,7 @@ describe('Media Helpers', () => {
 
   describe('parsePostMediaOwner', () => {
     it('extracts userId and postId', () => {
-      expect(parsePostMediaOwner({ storagePath: 'post-media/user123/post456/file.jpg' })).toEqual({
+      expect(parsePostMediaOwner({ storagePath: 'post_media/user123/post456/file.jpg' })).toEqual({
         userId: 'user123',
         postId: 'post456',
       });
@@ -121,7 +121,7 @@ describe('Media Helpers', () => {
 
   describe('parseProfilePictureOwner', () => {
     it('extracts userId', () => {
-      expect(parseProfilePictureOwner({ storagePath: 'profile-picture/user789/avatar.jpg' })).toEqual({
+      expect(parseProfilePictureOwner({ storagePath: 'profile_picture/user789/avatar.jpg' })).toEqual({
         userId: 'user789',
         postId: null,
       });
