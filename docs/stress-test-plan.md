@@ -23,9 +23,9 @@ gantt
 
 ---
 
-## 2. GIỚI THIỆU 2 OVERLAYS TEST CHUYÊN DỤNG (Kubernetes GitOps Overlays)
+## 2. GIỚI THIỆU 3 OVERLAYS TEST CHUYÊN DỤNG (Kubernetes GitOps Overlays)
 
-Để loại bỏ các khâu chỉnh sửa thủ công tốn thời gian, dự án đã được tích hợp sẵn 2 cấu hình overlays kế thừa 100% từ Production nhưng tối ưu hóa riêng cho kiểm thử tải:
+Để loại bỏ các khâu chỉnh sửa thủ công tốn thời gian, dự án đã được tích hợp sẵn 3 cấu hình overlays kế thừa từ Production nhưng tối ưu hóa riêng cho kiểm thử tải:
 
 1.  **Overlay 1: `k8s/overlays/stress-no-hpa`**
     *   **Rate Limit:** Tắt hoàn toàn (`RATE_LIMIT_ENABLED: "false"`).
@@ -33,8 +33,12 @@ gantt
     *   *Lệnh deploy:* `kubectl apply -k k8s/overlays/stress-no-hpa`
 2.  **Overlay 2: `k8s/overlays/stress-hpa`**
     *   **Rate Limit:** Tắt hoàn toàn (`RATE_LIMIT_ENABLED: "false"`).
-    *   **Scaling:** Kích hoạt co giãn tự động HPA từ 2 đến 10 Pods (y chang Production).
+    *   **Scaling:** Kích hoạt co giãn tự động HPA từ 2 đến 10 Pods (y chang Production, dùng direct connection/cấu hình cũ).
     *   *Lệnh deploy:* `kubectl apply -k k8s/overlays/stress-hpa`
+3.  **Overlay 3: `k8s/overlays/stress-hpa-realistic`**
+    *   **Rate Limit:** Tắt hoàn toàn (`RATE_LIMIT_ENABLED: "false"`).
+    *   **Scaling:** Kích hoạt co giãn tự động HPA từ 2 đến 10 Pods (có Pooler `54329` bật sẵn).
+    *   *Lệnh deploy:* `kubectl apply -k k8s/overlays/stress-hpa-realistic`
 
 ---
 
@@ -121,6 +125,20 @@ Và đặt một file ảnh của bạn vào thư mục `stress-tests/assets/tes
 3.  Thực hiện chạy k6 từ thư mục gốc dự án:
     ```bash
     k6 run stress-tests/light-soak-test.js
+    ```
+
+### Bước 5: Chạy bài test 3 - Realistic Stress Test (Kiểm thử tải thực tế - 30 Phút)
+1.  **Dọn dẹp môi trường cũ:**
+    ```bash
+    kubectl delete -k k8s/overlays/stress-no-hpa
+    ```
+2.  **Deploy overlay HPA thực tế chuyên dụng (có sẵn DB Pooler):**
+    ```bash
+    kubectl apply -k k8s/overlays/stress-hpa-realistic
+    ```
+3.  **Thực hiện chạy k6 kịch bản thực tế:**
+    ```bash
+    k6 run stress-tests/realistic-stress-test.js
     ```
 
 ---
