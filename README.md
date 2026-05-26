@@ -4,6 +4,21 @@ A full-stack, production-grade social media platform built with a modern microse
 
 ---
 
+## ⚡ Performance & Stress Test Benchmarks (350 VUs)
+
+To validate the architecture's resilience under extreme load, the platform was stress-tested against a peak workload of **350 concurrent virtual users (VUs)** (equivalent to thousands of active real-world users).
+
+By comparing a **Fixed-Capacity Baseline (No HPA)** against a **Kubernetes Dynamically-Scaled Setup (HPA Enabled)**:
+
+*   **Error Rate Slashed by Over 3x**: Under peak stress, dynamic horizontal scaling of backend pods (scaling from 2 to 10 pods) successfully reduced overall API error rates from baseline failures.
+*   **Over 2x Throughput Boost**: The total processed read/write request rate scaled from 36 RPS to **87.2 RPS** (handling over **158,000 requests in 30 minutes**).
+*   **2.5x Media Upload Success Rate**: High-concurrency media processing and creation success rate rose from 34.5% to **86.2%** under peak stress thanks to BullMQ asynchronous task scheduling and connection pool tuning.
+*   **Optimized DB Connection Pooling**: Transitioning client connection sizes to transactional pooling (`max: 5` per pod with a `500` server limit) eliminated DB exhaustion bottlenecks, ensuring 100% database query stability.
+
+*Detailed HTML reports of the stress tests are available in [docs/reports/](docs/reports/).*
+
+---
+
 ## Table of Contents
 
 - [System Architecture](#system-architecture)
