@@ -1,0 +1,116 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K6 API Performance Report</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa; padding: 20px; color: #333; }
+        h1 { text-align: center; color: #2c3e50; }
+        .table-container { overflow-x: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; background: white; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #34495e; color: white; position: sticky; top: 0; }
+        tr:hover { background-color: #f1f1f1; }
+        .method { font-weight: bold; border-radius: 4px; padding: 3px 6px; font-size: 0.9em; }
+        .POST { color: #d35400; }
+        .GET { color: #2980b9; }
+        .PUT { color: #8e44ad; }
+        .DELETE { color: #c0392b; }
+        .status-badge { display: inline-block; background: #e0e0e0; font-size: 0.85em; margin: 2px; padding: 2px 8px; border-radius: 12px; }
+        .status-200, .status-201 { background: #d4edda; color: #155724; }
+        .status-400, .status-401, .status-403, .status-404 { background: #fff3cd; color: #856404; }
+        .status-500 { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Báo Cáo Hiệu Năng API (Đã gộp chung Endpoint)</h1>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>API Endpoint (Kịch bản)</th>
+                    <th>Requests</th>
+                    <th>Average Time (ms)</th>
+                    <th>p95 Time (ms)</th>
+                    <th>Trạng thái (HTTP Codes)</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+                        <tr>
+                            <td><span class="method POST">[POST]</span> /api/media/upload-temp</td>
+                            <td>4.884</td>
+                            <td><strong>11018.09</strong></td>
+                            <td>54433.39</td>
+                            <td><span class="status-badge status-0">0: 3196</span>
+<span class="status-badge status-201">201: 1688</span></td>
+                        </tr>
+                    \n
+                        <tr>
+                            <td><span class="method GET">[GET]</span> /api/posts/feed/hybrid</td>
+                            <td>19.804</td>
+                            <td><strong>3281.85</strong></td>
+                            <td>22260.36</td>
+                            <td><span class="status-badge status-0">0: 16</span>
+<span class="status-badge status-200">200: 19788</span></td>
+                        </tr>
+                    \n
+                        <tr>
+                            <td><span class="method POST">[POST]</span> /api/posts</td>
+                            <td>1.685</td>
+                            <td><strong>1110.47</strong></td>
+                            <td>3488.85</td>
+                            <td><span class="status-badge status-201">201: 1685</span></td>
+                        </tr>
+                    \n
+                        <tr>
+                            <td><span class="method GET">[GET]</span> /api/posts/feed/public</td>
+                            <td>12.296</td>
+                            <td><strong>1086.60</strong></td>
+                            <td>2516.75</td>
+                            <td><span class="status-badge status-200">200: 12296</span></td>
+                        </tr>
+                    \n
+                        <tr>
+                            <td><span class="method POST">[POST]</span> /api/posts/feed/seen</td>
+                            <td>12.230</td>
+                            <td><strong>737.56</strong></td>
+                            <td>1719.94</td>
+                            <td><span class="status-badge status-0">0: 24</span>
+<span class="status-badge status-200">200: 12206</span></td>
+                        </tr>
+                    \n
+                        <tr>
+                            <td><span class="method POST">[POST]</span> /api/posts/:id/comments</td>
+                            <td>7.370</td>
+                            <td><strong>724.05</strong></td>
+                            <td>1648.97</td>
+                            <td><span class="status-badge status-0">0: 7</span>
+<span class="status-badge status-201">201: 7363</span></td>
+                        </tr>
+                    \n
+                        <tr>
+                            <td><span class="method POST">[POST]</span> /api/posts/:id/like</td>
+                            <td>7.370</td>
+                            <td><strong>714.30</strong></td>
+                            <td>1670.06</td>
+                            <td><span class="status-badge status-0">0: 10</span>
+<span class="status-badge status-200">200: 7360</span></td>
+                        </tr>
+                    \n
+                        <tr>
+                            <td><span class="method POST">[POST]</span> /api/auth/login (setup)</td>
+                            <td>50</td>
+                            <td><strong>111.64</strong></td>
+                            <td>142.89</td>
+                            <td><span class="status-badge status-200">200: 50</span></td>
+                        </tr>
+                    
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
+    
