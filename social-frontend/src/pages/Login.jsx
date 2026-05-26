@@ -1,10 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import authService from '../services/authService'
 import logoSvg from '../assets/logo/icon-white.svg'
 
 function Login() {
   const navigate = useNavigate()
+  
+  useEffect(() => {
+    async function checkSession() {
+      const { user } = await authService.getCurrentUser()
+      if (user) {
+        navigate('/home', { replace: true })
+      }
+    }
+    checkSession()
+  }, [navigate])
   const [formData, setFormData] = useState({
     identifier: '',
     password: ''

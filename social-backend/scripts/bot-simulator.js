@@ -51,7 +51,7 @@ class BotSimulator {
                 }
             });
 
-            if (createError && createError.message !== 'Email address already registered by another user') {
+            if (createError && !createError.message.includes('already registered')) {
                 throw createError;
             }
 

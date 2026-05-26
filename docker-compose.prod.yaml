@@ -25,6 +25,10 @@ services:
     environment:
       - NODE_ENV=production
       - REDIS_HOST=redis
+      - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54322/postgres
+      - SUPABASE_URL=http://host.docker.internal:54321
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - redis
     env_file:
@@ -43,6 +47,10 @@ services:
     environment:
       - NODE_ENV=production
       - REDIS_HOST=redis
+      - DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:54322/postgres
+      - SUPABASE_URL=http://host.docker.internal:54321
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       - redis
     env_file:

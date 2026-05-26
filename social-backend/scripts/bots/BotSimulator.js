@@ -55,7 +55,7 @@ export class BotSimulator {
                     user_metadata: { username: this.username, full_name: this.fullName }
                 });
 
-                if (createError && createError.message !== 'Email address already registered by another user') {
+                if (createError && !createError.message.includes('already registered')) {
                     throw createError;
                 }
             }
