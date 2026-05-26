@@ -323,7 +323,7 @@ const buildStorageKey = ({ bucket, path }) => {
   return `${normalizedBucket}:${normalizedPath}`;
 };
 
-const getPublicUrl = ({ bucket, path }) => {
+const getPublicUrl = ({ bucket, path }, options = {}) => {
   const normalizedBucket = normalizeBucketName(bucket);
   const normalizedPath = normalizeStoragePath(path);
   if (!normalizedBucket || !normalizedPath) {
@@ -339,7 +339,7 @@ const getPublicUrl = ({ bucket, path }) => {
     null;
 
   // Rewrite internal hostname to public hostname so browser can load the URL
-  if (publicUrl && SUPABASE_PUBLIC_URL && SUPABASE_INTERNAL_URL && SUPABASE_PUBLIC_URL !== SUPABASE_INTERNAL_URL) {
+  if (!options.internal && publicUrl && SUPABASE_PUBLIC_URL && SUPABASE_INTERNAL_URL && SUPABASE_PUBLIC_URL !== SUPABASE_INTERNAL_URL) {
     publicUrl = publicUrl.replace(SUPABASE_INTERNAL_URL, SUPABASE_PUBLIC_URL);
   }
 

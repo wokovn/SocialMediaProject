@@ -84,9 +84,17 @@ export const processResizeJob = async ({
     };
   }
 
+  const sourceUrlInternal = storageService.getPublicUrl(
+    {
+      bucket: sourceLocation.bucket,
+      path: sourceLocation.path,
+    },
+    { internal: true },
+  );
+
   let sourceProbe = null;
   try {
-    sourceProbe = await ffmpegService.probeMedia(sourceUrl);
+    sourceProbe = await ffmpegService.probeMedia(sourceUrlInternal);
   } catch (error) {
     console.warn('[media-resize] ffprobe failed:', error.message);
   }
@@ -207,7 +215,7 @@ export const processResizeJob = async ({
 
     if (mediaType === 'video') {
       const artifact = await ffmpegService.createVideoThumbnail({
-        inputPathOrUrl: sourceUrl,
+        inputPathOrUrl: sourceUrlInternal,
         seekSeconds: VIDEO_THUMBNAIL_SEEK_SECONDS,
         maxSize: VIDEO_THUMBNAIL_MAX_SIZE,
       });
@@ -242,7 +250,7 @@ export const processResizeJob = async ({
 
       for (const preset of presets) {
         const artifact = await ffmpegService.createImageVariant({
-          inputPathOrUrl: sourceUrl,
+          inputPathOrUrl: sourceUrlInternal,
           maxSize: preset.maxSize,
         });
         artifacts.push(artifact);
