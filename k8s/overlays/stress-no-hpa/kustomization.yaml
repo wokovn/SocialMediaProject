@@ -8,3 +8,14 @@ resources:
 labels:
   - pairs:
       env: stress-no-hpa
+
+patches:
+  - target:
+      version: v1
+      kind: Service
+      name: backend
+    patch: |-
+      - op: replace
+        path: /spec/type
+        value: LoadBalancer
+
